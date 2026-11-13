@@ -68,3 +68,12 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Editor settings
+.vscode/
+
+# Test suite
+test/node_modules/
+test/results.json
+test/coverage/
+test/.rezless-coverage/

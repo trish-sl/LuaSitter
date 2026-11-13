@@ -1,20 +1,18 @@
 ****************************************
-Welcome to AVsitter2™ Copyright (c) 2017
+Welcome to LuaSitter
 ****************************************
 
-Visit these links for product information:
+LuaSitter is a furniture pose system for Second Life written in SLua
+(Lua). It is derived from the source code of AVsitter(TM) and works
+with the same notecards. New furniture can name the
+notecard LSpos; existing AVpos notecards keep working.
 
-GUIDE:
+Source code, documentation and updates:
+https://github.com/trish-sl/LuaSitter
+
+Notecard command reference (the AVpos/LSpos format is unchanged):
 http://avsitter.github.io
 
-GITHUB:
-https://github.com/AVsitter
+LuaSitter is not affiliated with or endorsed by the AVsitter project.
 
-MARKETPLACE:
-https://marketplace.secondlife.com/stores/79645
-
-Please consider supporting continued development of AVsitter and
-Receive automatic updates and other benefits! All details and user 
-instructions can be found at http://avsitter.github.io
-
-We hope you enjoy using AVsitter in your creations!
+We hope you enjoy using LuaSitter in your creations!

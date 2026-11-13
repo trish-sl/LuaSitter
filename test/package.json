@@ -1,0 +1,14 @@
+{
+  "name": "luasitter-tests",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Offline test suite for LuaSitter1 and LuaSitter2, run with rezless (https://github.com/i-doll/rezless).",
+  "type": "module",
+  "scripts": {
+    "test": "node run-tests.mjs"
+  },
+  "devDependencies": {
+    "@rezless/vitest": "0.13.0",
+    "vitest": "5.1.0"
+  }
+}
