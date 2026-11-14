@@ -167,3 +167,97 @@ describe('LuaSitter2 LS-notecard-tools Generate and menu', () => {
     expect(printed(f)).toContain('menu timed out, touch to show it again.')
   })
 })
+
+describe('LuaSitter2 LS-notecard-tools more', () => {
+  it('Shift: exponents, positions that are not vectors (read as <0,0,0>), PROP lines with a group', async () => {
+    const f = await tools({
+      LSpos: [
+        'SITTER 0',
+        'POSE A|walk',
+        '{A}<1e1,0,0><0,0,0>',
+        '{B}<a,b,c><0,0,0>',
+        '{C}<1 2 3><0,0,0>',
+        '{D}<1,x,0><0,0,0>',
+        'PROP Ball|ballobj|G1|<1,0,0>|<0,0,90>',
+      ].join('\n'),
+    })
+    f.click(owner, 'Shift')
+    f.say(owner, 5, '<0,0,1>')
+    f.settle(10_000)
+    const out = readout(f)
+    expect(out).toContain('{A}<10,0,1><0,0,0>')
+    expect(out).toContain('{B}<0,0,1><0,0,0>')
+    expect(out).toContain('{C}<0,0,1><0,0,0>') // spaces are removed first: "<123>" has no commas
+    expect(out).toContain('{D}<0,0,1><0,0,0>')
+    expect(out).toContain('PROP Ball|ballobj|G1|<1,0,1>|<0,0,90>')
+  })
+
+  it('Shift: offsets and touches are ignored while the read-out runs', async () => {
+    const lines = ['SITTER 0', 'POSE A|walk', ...Array.from({ length: 30 }, (_, i) => `{A}<0,0,${i}><0,0,0>`)]
+    const f = await tools({ LSpos: lines.join('\n') }, { prims: 2 })
+    f.click(owner, 'Shift')
+    f.say(owner, 5, '<0,0,1>')
+    f.say(owner, 5, '<0,0,7>') // still reading out
+    f.say(owner, 6, '<0,0,90>')
+    f.touch(owner, 2)
+    f.settle(10_000)
+    const p = printed(f)
+    expect(p.match(/Converting positions in LSpos/g)).toHaveLength(1)
+    expect(p).not.toContain('Converting rotations')
+    expect(p).not.toContain('for use in prim #2')
+    const out = readout(f)
+    expect(out.filter((l) => l.startsWith('{A}'))).toHaveLength(30)
+    expect(out).toContain('{A}<0,0,30><0,0,0>')
+    expect(out.filter((l) => l.includes('COPY BELOW'))).toHaveLength(1)
+  })
+
+  it('Shift through the dataserver (NAK): offsets, touches and answers to other requests are ignored meanwhile', async () => {
+    const f = await tools({ LSpos: 'x' }, { prims: 2 })
+    const s = f.script('LS-notecard-tools')
+    const keys = Array.from({ length: 5 }, (_, i) => `99999999-0000-0000-0000-00000000000${i + 1}`)
+    let asked = 0
+    s.mock('llGetNotecardLineSync', () => '\n\x15\n')
+    s.mock('llGetNotecardLine', () => keys[asked++]!) // answered by hand below
+    f.click(owner, 'Shift')
+    f.say(owner, 5, '<0,0,1>')
+    expect(asked).toBe(1)
+    // while the notecard is read: offsets and touches are ignored
+    f.say(owner, 5, '<0,0,7>')
+    f.say(owner, 6, '<0,0,90>')
+    f.touch(owner, 2)
+    expect(printed(f).match(/Converting/g)).toHaveLength(1)
+    expect(asked).toBe(1)
+    s.fire('dataserver', { queryid: '77777777-0000-0000-0000-000000000001', data: '{Stray}<0,0,0><0,0,0>' })
+    s.fire('dataserver', { queryid: keys[0], data: '{Sit}<0,0,0.5><0,0,0>' })
+    s.fire('dataserver', { queryid: keys[1], data: '\n\n\n' })
+    f.settle(10_000)
+    const out = readout(f)
+    expect(out).toContain('{Sit}<0,0,1.5><0,0,0>')
+    expect(out.join('\n')).not.toContain('Stray')
+    expect(printed(f)).toContain('Conversion complete, removing script.')
+  })
+
+  it('the menu is ignored while a tool runs', async () => {
+    const f = await tools({ LSpos: 'SITTER 0\nPOSE A|walk' })
+    const menu = f.lastDialog(owner)
+    f.click(owner, 'Shift')
+    f.script('LS-notecard-tools').fire('listen', { channel: menu.channel, name: owner.name, id: owner.key, msg: 'Generate' })
+    f.settle(5_000)
+    expect(readout(f).join('\n')).not.toContain('POSE Anim1|walk')
+    expect(removed(f)).toBe(false)
+  })
+})
+
+describe('LuaSitter2 LS-notecard-tools with AVpos', () => {
+  it('Generate names AVpos when it is the only pose notecard, then removes itself after the read-out', async () => {
+    const f = await tools({ AVpos: 'SITTER 0' })
+    expect(f.lastDialog(owner).message).toContain('all positions of the AVpos notecard')
+    f.click(owner, 'Generate')
+    f.settle(5_000)
+    const out = readout(f)
+    expect(out).toContain('--✄--COPY BELOW INTO AVpos NOTECARD--✄--')
+    expect(out).toContain('POSE Anim1|walk')
+    expect(printed(f)).toContain('Removing LS-notecard-tools script')
+    expect(removed(f)).toBe(true)
+  })
+})

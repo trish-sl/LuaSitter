@@ -28,9 +28,8 @@
             1. finds the prims with an update receiver, and puts this sender's
                LuaSitter receiver in those that have another one (an LSL
                receiver cannot delete scripts). Objects (props) are kept.
-               FIX: a LuaSitter receiver under another name (e.g.
-               "LS-update-receiver") is found here too (MIGRATE_SEARCH);
-               it was only found in step 2, after "Found 0 prims".
+               A LuaSitter receiver under another name (e.g.
+               "LS-update-receiver") is found too (MIGRATE_SEARCH).
             2. asks each receiver for its scripts and says the plan in chat
                (scripts removed, added, kept; scripts this sender lacks), then
                asks APPLY / CANCEL. Nothing is changed before APPLY.
@@ -54,17 +53,18 @@
   FIX: upstream asked once and waited a fixed 10 s, so slow furniture was
   missed ("Found 0 prims"). The sender asks again after 5 and 10 s and waits
   until the answers stop (see collect).
-  Behaviour change / FIX: upstream looped forever ("Processing prim 1/0"...)
-  when no prim answered; now it reports completion and resets.
-  Behaviour change: touching gives the Update / Migrate / Range menu
-  (upstream: touching started the update).
-  After an update or migration (LuaSitter), the sender asks REMOVE / KEEP for
-  the update receivers of the prims of the run. REMOVE sends RECEIVER_REMOVE;
-  LuaSitter receivers answer RECEIVER_REMOVED, clear their name label and
-  delete themselves. LSL receivers cannot, and are listed to remove by hand.
-  Upstream kept the receivers.
-  Behaviour change: the default range is 100 m from the sender (upstream: half
-  the sender's X size). Choose Range > Prim size for the upstream rule.
+  FIX: upstream looped forever ("Processing prim 1/0"...) when no prim
+  answered; the sender reports completion and resets.
+  Behaviour changes:
+  - Touching gives the Update / Migrate / Range menu (upstream: touching
+    started the update).
+  - The default range is 100 m from the sender (upstream: half the sender's
+    X size; Range > Prim size keeps that rule).
+  - After an update or migration the sender asks REMOVE / KEEP for the update
+    receivers of the prims of the run (upstream kept them). REMOVE sends
+    RECEIVER_REMOVE; LuaSitter receivers answer RECEIVER_REMOVED, clear their
+    name label and delete themselves. LSL receivers cannot, and are listed to
+    remove by hand.
 ]]
 
 local pin = -29752
@@ -172,12 +172,12 @@ local function search(msg: string)
     end
 end
 
--- Ask and wait for the answers (LuaSitter). Upstream asked once and waited a
--- fixed time (10 s; Migrate 5 s), so furniture in a busy region often answered
--- too late and was missed ("Found 0 prims"). Now the question is asked again
--- after 5 and 10 s while not all answered (answers are counted once per
--- prim), and the wait ends 3 s after the last new answer (at least 8 s), when
--- all `expected` prims answered, or after 15 s.
+-- FIX: ask and wait for the answers. Upstream asked once and waited a fixed
+-- 10 s, so furniture in a busy region often answered too late and was missed
+-- ("Found 0 prims"). The question is asked again after 5 and 10 s while not
+-- all answered (answers are counted once per prim), and the wait ends 3 s
+-- after the last new answer (at least 8 s), when all `expected` prims
+-- answered, or after 15 s.
 local function collect(msgs: {string}, count: () -> number, expected: number, done: () -> ())
     local elapsed, last, lastChange = 0, 0, 0
     for _, msg in msgs do

@@ -40,6 +40,8 @@ export const LS2_SCRIPTS: Record<string, string> = {
   '[LS]root-RLV': LS2 + 'Plugins/LScontrol/[LS]root-RLV.luau',
   '[LS]Xcite!': LS2 + 'Plugins/LScontrol/Xcite!-Sensations/[LS]Xcite!.luau',
   '[LS]commands': LS2 + 'Plugins/LScommands/[LS]commands.luau',
+  '[LS]chains': LS2 + 'Plugins/LScontrol/Chains/[LS]chains.luau',
+  '[LS]options': LS2 + 'Plugins/LSoptions/[LS]options.luau',
   'LS-setup-checker': LS2 + 'Utilities/LS-setup-checker.luau',
   'LS-notecard-tools': LS2 + 'Utilities/LS-notecard-tools.luau',
   '[LS]object': LS2 + 'Plugins/LSplugins/[LS]object.luau',

@@ -2,7 +2,7 @@
 
 > **LuaSitter note:** This page is from the [AVsitter documentation](https://avsitter.github.io) (CC BY-SA 4.0, see [LICENSE](../LICENSE.md)), adapted for LuaSitter. It applies to LuaSitter1: the AVpos notecard format and link messages are unchanged (the notecard can also be named `LSpos`, preferred for new furniture), and scripts are named with `LS` instead of `AV` (for example `AVsit` is `LSsit`). See [LuaSitter1/README.md](../../LuaSitter1/README.md).
 
-> **Important:** AVsitter1 has been superceded by AVsitter2 but may still be useful in cases where a single script is preferred, and may also be a candidate for updating to accommodate additional functionality from AVsitter2.
+> **Important:** AVsitter1 has been superseded by AVsitter2 but may still be useful in cases where a single script is preferred, and may also be a candidate for updating to accommodate additional functionality from AVsitter2.
 
 
 ## VIDEOS
@@ -93,7 +93,7 @@ POSE Sit1|animation1
 SYNC Cuddle|hug_male
 {Sit1}<1.000000, -0.000050, 0.582960><0.000000, 0.000000, 0.000000>
 {Cuddle}<1.000000, -0.000050, 0.538680><0.000000, 0.000000, 0.000000>
-````
+```
 
 The following are notecard commands you can use:
 
@@ -180,7 +180,6 @@ Some designers do like to offer 1-prim versions of their furniture but need to b
 When using a setup of multiple AVsit scripts in a prim it may be that you would prefer to offer a menu of all the different seats instead of having the usual [SWAP] ability which just moves an avatar to the next seat. The AVselect script provides a way in which avatars can choose their seat from a menu.
 
 Features of the AVselect script:
-
 
 -  If you want to add this feature to existing furniture simply place the AVselect script in the prim that contains your AVsit scripts. All occurrences of [SWAP] are now changed to say [SELECT] and when an avatar chooses [SELECT] they are taken to a menu of the SITTER sections defined in the notecard.
 
@@ -316,7 +315,7 @@ When the "Sleep1" pose is selected, this alternates between "express_smile" and 
 
 Any animation can be specified in these sequences. Also, for the full list of internal SL animations see [http://wiki.secondlife.com/wiki/Internal_Animations](http://wiki.secondlife.com/wiki/Internal_Animations). Internal animations can be used in AVsitter without the animation file existing in the furniture.
 
-The facial expresssions available in SL include:
+The facial expressions available in SL include:
 
     express_afraid_emote, express_anger_emote, express_laugh_emote, express_bored_emote, express_cry_emote, express_embarrassed_emote, express_sad_emote, express_toothsmile, express_smile, express_surprise_emote, express_worry_emote, express_repulsed_emote, express_shrug_emote, express_wink_emote, express_disdain, express_frown, express_kiss, express_open_mouth, express_tongue_out
 
@@ -379,3 +378,4 @@ See the following pages for AVsitter1 script examples:
 - **Script names:** `AVsit` is `LSsit` (`LSsit 1`, `LSsit 2`, ...), `AVadjuster` is `LSadjuster`, `AVselect` is `LSselect`, `AVplus` is `LSplus`, `Root` is `LSroot`, `Root-Security` is `LSroot-security`, `SitTarget-Add` is `LSsittarget-add`, and the `AVprop` script inside props is `LSprop`. The helper object can be named `LShelper` (with `LShelper-script` inside); an `AVhelper` object also works. Do not mix LSL `AVsit` and Lua `LSsit` scripts in one prim. See [LuaSitter1/README.md](../../LuaSitter1/README.md).
 - **Remove the setup tools:** the "no-transfer" remark in step 7 is about the AVsitter package. With LuaSitter, remove `LSadjuster` and the helper before selling because they are setup tools; `/5 cleanup` still deletes both.
 - **Utilities:** the "Notecard-Generator", "MLP-Converter" and "SitTarget-Remove" scripts have no LuaSitter1 version.
+- **[EXTRAS] menu:** the button that opens the AVplus/LSplus extras menu is labelled **[EXTRA]** in the menu (as in AVsitter1).

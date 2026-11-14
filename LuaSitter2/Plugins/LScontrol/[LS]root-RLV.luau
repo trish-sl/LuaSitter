@@ -20,14 +20,14 @@
   [AV]root-RLV-extra only existed because of the 64 KB LSL memory limit. It is
   merged here (the "X" section below). The purely internal messages between the
   two scripts became direct function calls:
-    - 90208 / 90209 (open Un/Dress / Restrict) are no longer emitted. They are
-      still ANSWERED when another script sends them (same payload:
+    - 90208 / 90209 (open Un/Dress / Restrict) are not sent. They are still
+      answered when another script sends them (same payload:
       id = "<captive>|<controller>|<title>").
-    - 90100 "0|Control...|<captive>" that the extra script sent for [BACK] is
-      now a direct call (it was LINK_THIS only, nobody else acted on it).
-  The extra menus keep their own dialog channel and status channel, exactly as
-  before. The "Restrict" and "Un/Dress" buttons are now always offered (the
-  feature can no longer be missing).
+    - 90100 "0|Control...|<captive>", sent by the extra script for [BACK]
+      (LINK_THIS only, nobody else acted on it), is a direct call.
+  The extra menus keep their own dialog channel and status channel, as
+  upstream. The "Restrict" and "Un/Dress" buttons are always offered
+  (upstream: only when [AV]root-RLV-extra was present).
 
   Link messages added
   -------------------
@@ -55,9 +55,11 @@
       menu" (were "Take Keys"/"Drop Keys"), "Capture new…" (was "Capture...").
       The upstream names are still accepted. The pose menu shows "RLV ▸"
       ([LS]sit; it still sends "Control..." in 90100).
+    - The submissive menu is paged ([<<] / [>>]) when it needs more than 12
+      buttons.
     - No llSleep: upstream paused this script for 1 s before playing a pose
       (playpose), before swapping a sitter into a free seat and before giving
-      the menu to a new dominant. Each event handler now runs as a task (a
+      the menu to a new dominant. Each event handler runs as a task (a
       coroutine) that waits on an LLTimers timer instead. Events that arrive
       while a task waits are queued and handled after it, in arrival order, as
       LSL queued them during llSleep, so the order of everything the script
@@ -74,8 +76,8 @@
       no ROLES line, so ONSIT CAPTURE did nothing until then.
     - Notecard lines may start with a chat prefix ending in the U+25C6 marker
       (as pasted from a DUMP), like [LS]sit accepts.
-    - The extra menus' llSleep(2)/llSleep(4) are timers now (the merged
-      script must stay responsive).
+    - The extra menus' llSleep(2)/llSleep(4) are timers (the merged script
+      must stay responsive).
 ]]
 
 local product = "LuaSitter RLV"
@@ -364,7 +366,7 @@ local captureOnAsk = true
 local doNotSayReleaseMessage = 0
 local dumpLines: {string} = {} -- RLV-owned notecard lines, for the adjuster DUMP (issue #18)
 
--- PR #149: one record per captive (was CAPTIVES [name, uuid] + CAPTIVE_POSES_FLAGS [pose, flag])
+-- PR #149: one record per captive (upstream: strided lists CAPTIVES [name, uuid] + CAPTIVE_POSES_FLAGS [pose, flag])
 local POSE_NORMAL = 0 -- record every pose played
 local POSE_GONE = 1 -- captive unsat / logged off
 local POSE_RETURNED = 2 -- captive sat again: restore `pose`
@@ -414,7 +416,7 @@ local function captiveRecord(id: string): Captive?
     return if i then CAPTIVES[i] else nil
 end
 
--- llDumpList2String(CAPTIVES, ",") of the old strided [name, uuid] list
+-- llDumpList2String(CAPTIVES, ",") of upstream's strided [name, uuid] list
 local function captivesCsv(): string
     local t = {}
     for _, c in CAPTIVES do
@@ -607,12 +609,12 @@ local function playpose(pose: string, target_sitter: string)
 end
 
 -- Button labels (LuaSitter). The upstream labels are still accepted (see onMenu).
-local B_POSES = "◂ Poses" -- was "Menu..."
-local B_CAPTURE = "Capture" -- was "Capture!"
-local B_RELEASE = "Release" -- was "Release!"
-local B_LOCK = "Lock menu" -- was "Take Keys"
-local B_UNLOCK = "Unlock menu" -- was "Drop Keys"
-local B_CAPTURE_NEW = "Capture new…" -- was "Capture..."
+local B_POSES = "◂ Poses" -- upstream: "Menu..."
+local B_CAPTURE = "Capture" -- upstream: "Capture!"
+local B_RELEASE = "Release" -- upstream: "Release!"
+local B_LOCK = "Lock menu" -- upstream: "Take Keys"
+local B_UNLOCK = "Unlock menu" -- upstream: "Drop Keys"
+local B_CAPTURE_NEW = "Capture new…" -- upstream: "Capture..."
 
 local function Timelock_menu()
     menu = "Timelock"
@@ -708,7 +710,7 @@ local function rlv_top_menu()
                 then "\nMenu locked by " .. controllerName .. "."
                 else "\nMenu unlocked: anyone can take control."
             table.insert(menu_items, "Timelock")
-            -- the Restrict and Un/Dress menus are built in now ([AV]root-RLV-extra merged)
+            -- Restrict and Un/Dress: [AV]root-RLV-extra is merged into this script
             table.insert(menu_items, "Restrict")
             table.insert(menu_items, "Un/Dress")
             table.insert(menu_items, B_RELEASE)
@@ -823,7 +825,7 @@ local function new_controller(id: string)
 end
 
 local function no_sensor_results()
-    stopSearch() -- expecting_relay_results = FALSE (and drop the now useless timeout)
+    stopSearch() -- expecting_relay_results = FALSE (and drop the pending timeout)
     local menu_items = {}
     if CONTROLLER == owner() then
         table.insert(menu_items, "[SECURITY]")
@@ -856,10 +858,10 @@ local function check_submissive()
     slaveName = ll.Key2Name(K(SLAVE))
 end
 
--- Menus that list one button per sitter (or avatar) are paged, so there is no
--- limit of 11 sitters. When everything fits in one dialog (12 buttons) the menu
--- is unchanged. Otherwise each page shows as many names as fit, padded with " ",
--- then the fixed buttons, then PAGE_PREV / PAGE_NEXT (pages wrap around).
+-- One page of a menu with one button per sitter (upstream: at most 12 buttons).
+-- When everything fits in one dialog (12 buttons) there is a single page.
+-- Otherwise each page shows as many names as fit, padded with " ", then the
+-- fixed buttons, then PAGE_PREV / PAGE_NEXT (pages wrap around).
 local PAGE_PREV, PAGE_NEXT = "[<<]", "[>>]"
 local function pageOf(items: {string}, fixed: {string}, page: number): ({string}, number)
     local out = {}
@@ -910,7 +912,6 @@ local function select_submissive_rlv()
         check_submissive()
         return
     end
-    -- more than 12 buttons: paged with [<<] / [>>] (no limit of 11 sitters)
     menu_items, sub_select_page = pageOf(menu_items, fixed, sub_select_page)
     dialog(text, menu_items)
 end
@@ -1003,7 +1004,7 @@ local function controlMenu(id: string, target: string)
 end
 
 --------------------------------------------------------------------------
--- X: Restrict and Un/Dress menus (was [AV]root-RLV-extra)
+-- X: Restrict and Un/Dress menus (upstream: [AV]root-RLV-extra)
 --------------------------------------------------------------------------
 local CLOTHING_LAYERS = {"gloves", "jacket", "pants", "shirt", "shoes", "skirt", "socks", "underpants", "undershirt", "", "", "", "", "alpha", "tattoo"}
 local ATTACHMENT_POINTS = {"", "chest", "skull", "left shoulder", "right shoulder", "left hand", "right hand", "left foot", "right foot", "spine", "pelvis", "mouth", "chin", "left ear", "right ear", "left eyeball", "right eyeball", "nose", "r upper arm", "r forearm", "l upper arm", "l forearm", "right hip", "r upper leg", "r lower leg", "left hip", "l upper leg", "l lower leg", "stomach", "left pec", "right pec", "", "", "", "", "", "", "", "", "neck", "root"}
@@ -1124,7 +1125,7 @@ local function xGetInvWorn(slave: string, path: string, channel: number)
     relay(slave, "@getinvworn:" .. path .. "=" .. tostring(channel))
 end
 
--- was link messages 90208 (Un/Dress) / 90209 (Restrict) to [AV]root-RLV-extra
+-- upstream: link messages 90208 (Un/Dress) / 90209 (Restrict) to [AV]root-RLV-extra
 local function xOpen(slave: string, controller: string, title: string, undress: boolean)
     X.slave = slave
     X.controller = controller
@@ -1176,13 +1177,13 @@ local function xMenuListen(msg: string)
             command = if msg == iconSubtract then "detach" else "attach"
             local slave, path, channel = X.slave, table.concat(X.folderPath, "/"), X.statusChannel
             relay(slave, "@" .. command .. ":" .. path .. "=force")
-            LLTimers:once(4, task(function() -- was llSleep(4)
+            LLTimers:once(4, task(function() -- upstream: llSleep(4)
                 xGetInvWorn(slave, path, channel)
             end))
         end
     elseif msg == "[BACK]" then
         if X.menu == "Restrict" or X.menu == "" then
-            controlMenu(X.controller, X.slave) -- was 90100 "0|Control...|<captive>"
+            controlMenu(X.controller, X.slave) -- upstream: 90100 "0|Control...|<captive>"
         else
             xMainMenu()
         end
@@ -1196,7 +1197,7 @@ local function xMenuListen(msg: string)
         if index then
             local slave, channel, cmd = X.slave, X.statusChannel, command
             relay(slave, "@rem" .. cmd .. ":" .. msg .. "=force")
-            LLTimers:once(2, task(function() -- was llSleep(2)
+            LLTimers:once(2, task(function() -- upstream: llSleep(2)
                 relay(slave, "@get" .. cmd .. "=" .. tostring(channel))
             end))
         end
@@ -1430,12 +1431,12 @@ local function onLinkMessage(sender: number, num: number, msg: string, id: strin
                 local new_pose = L(data, 2) -- FIX: PR #149 declared it inside the first branch only
                 if c.flag == POSE_RETURNED then
                     if new_pose ~= c.pose and c.pose ~= "" and c.tries < MAX_RESTORE_TRIES then
-                        -- reapply the correct previous pose
-                        -- FIX: limited number of tries (a pose that cannot be played would loop forever)
+                        -- reapply the previous pose
+                        -- FIX: limited number of tries (a pose that cannot be played looped forever)
                         c.tries += 1
                         ll.MessageLinked(LINK_THIS, 90000, c.pose, id)
                     else
-                        -- either it's now right or we didn't have a previous pose
+                        -- the pose is right, or there was no previous pose
                         c.pose = new_pose
                         c.flag = POSE_NORMAL
                         c.tries = 0
@@ -1449,9 +1450,8 @@ local function onLinkMessage(sender: number, num: number, msg: string, id: strin
     elseif num == 90060 then
         menu = ""
         table.insert(SITTING_AVATARS, id)
-        -- If they must be assigned a SUB spot, regardless of the
-        -- automatically assigned sitter, lock them as they sit.
-        -- That happens with ONSIT CAPTURE and with force-sitting.
+        -- ONSIT CAPTURE or a force-sit: give them a submissive seat, whatever
+        -- sitter number they got, and capture them as they sit
         if onSit == "CAPTURE" or CONTROLLER .. id == PairWhoStartedCapture then
             if table.find(DESIGNATIONS_NOW, "S") then
                 find_seat(id, one, Submissive_name, true)
@@ -1496,7 +1496,7 @@ local function onLinkMessage(sender: number, num: number, msg: string, id: strin
         if c then
             c.flag = POSE_GONE
         end
-        -- was in [AV]root-RLV-extra
+        -- upstream: in [AV]root-RLV-extra
         if id == X.slave then
             xClose()
         end
@@ -1591,7 +1591,7 @@ local function onLinkMessage(sender: number, num: number, msg: string, id: strin
             start_relay_search()
         end
     elseif num == 90208 or num == 90209 then
-        -- no longer sent by this script, still answered for third-party scripts
+        -- not sent by this script; answered for third-party scripts
         local data = split(id, "|")
         xOpen(L(data, 1), L(data, 2), L(data, 3), num == 90208)
     elseif num == 90020 then
@@ -1690,9 +1690,9 @@ local function onMenu(id: string, msg: string)
     elseif msg == B_POSES or msg == "Menu..." then
         ll.MessageLinked(LINK_SET, 90004, "", id .. "|" .. SLAVE)
     elseif msg == "Un/Dress" then
-        xOpen(SLAVE, CONTROLLER, msg, true) -- was 90208
+        xOpen(SLAVE, CONTROLLER, msg, true) -- upstream: 90208
     elseif msg == "Restrict" then
-        xOpen(SLAVE, CONTROLLER, msg, false) -- was 90209
+        xOpen(SLAVE, CONTROLLER, msg, false) -- upstream: 90209
     elseif msg == B_LOCK or msg == "Take Keys" then
         controllerHasKeys = true
         rlv_top_menu()
@@ -1794,7 +1794,7 @@ local function startRunning()
     LLEvents:on("link_message", task(onLinkMessage))
     LLEvents:on("listen", task(onListen))
 
-    -- sensor: relay search only (the relay check uses a timer now)
+    -- sensor: relay search only (the relay check uses a timer)
     LLEvents:on("sensor", task(function(detected: {DetectedEvent})
         expected_number = #detected
         for i = 1, math.min(#detected, 10) do

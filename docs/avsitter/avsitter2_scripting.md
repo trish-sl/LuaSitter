@@ -175,7 +175,7 @@ See the following pages for AVsitter2 script examples:
 - [LSL Examples (Beginner)](avsitter2_lsl_examples_beginner.md)
 - [LSL Examples (Advanced)](avsitter2_lsl_examples_advanced.md)
 
-> **Note:** Advanced scripters can [check here for the complete list of messages](../../AVsitter2/avsitter2_link_message_reference.md). You may need to consult the AVsitter source code about what some messages do specifically. Keep in mind that the messages listed in there may change without warning.
+> **Note:** Advanced scripters can [check here for the complete list of messages](<../../Archive (Original AVSitter Source)/AVsitter2/avsitter2_link_message_reference.md>). You may need to consult the AVsitter source code about what some messages do specifically. Keep in mind that the messages listed in there may change without warning.
 
 ## LuaSitter notes
 

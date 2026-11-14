@@ -14,12 +14,13 @@
   (90100). Gates root touches (and 90006 touches relayed by the sit scripts)
   before opening the menu (90005), or hands them to [LS]root-control
   (90007 / 90012 when [LS]root-RLV is present). Answers 90201 with 90202
-  (is RLV present). Same behaviour as [AV]root-security; script names
-  renamed to [LS]. Settings are not persistent (as upstream).
+  (is RLV present). Settings are not persistent (as upstream).
 
-  LuaSitter: checks chat commands of the optional [LS]commands plugin
-  (90013): "menu" is handled like a touch by that sitter; other commands
-  are allowed back with 90016 when the sitter has menu access.
+  Changes from upstream:
+  - Checks chat commands from the optional [LS]commands plugin (90013):
+    "menu" is handled like a touch by that sitter; other commands are
+    answered with 90016 when the sitter has menu access.
+  - An unknown answer in the Sit/Menu dialog keeps the current setting.
 ]]
 
 local VERSION = "3.0-lua1"
@@ -173,8 +174,8 @@ LLEvents:on("link_message", function(sender: number, num: number, msg: string, i
             register_touch(id, int(msg), sender, false)
         end
     elseif num == 90013 then
-        -- [LS]commands: a chat command from a sitter, checked like a touch. "menu" is
-        -- handled as a touch; any other command is allowed back with 90016.
+        -- [LS]commands: a sitter's chat command. "menu" is handled as a touch;
+        -- any other command is answered with 90016 if the sitter has menu access.
         if msg == "menu" then
             register_touch(id, 0, sender, true)
         elseif pass_security(id, "MENU") then
@@ -216,7 +217,7 @@ LLEvents:on("listen", function(_chan: number, _name: string, id: uuid, msg: stri
         if msg == "[BACK]" then
             ll.MessageLinked(LINK_SET, 90101, tostring(active_script_channel) .. "|[ADJUST]|" .. tostring(id), active_sitter)
         elseif lastmenu == "Sit" then
-            -- (upstream set -1 for an unknown answer; we keep the current one)
+            -- FIX: upstream set the index to -1 for an unknown answer; keep the current one.
             SIT_INDEX = table.find(SIT_TYPES, msg) or SIT_INDEX
             main_menu()
             check_sitters()

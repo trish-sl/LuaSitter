@@ -11,7 +11,7 @@ import type { Furniture } from '../helpers/furniture.js'
 const PIN = -29752
 const RECEIVER = 'update receiver (auto removing)'
 const owner = { key: OWNER, name: 'Owner Resident' }
-const LSL_RECEIVER = REPO + 'AVsitter2/Utilities/Updater/update-receiver.lsl'
+const LSL_RECEIVER = REPO + 'Archive (Original AVSitter Source)/AVsitter2/Utilities/Updater/update-receiver.lsl'
 
 const OLD_SCRIPTS = ['[AV]sitA', '[AV]sitB', '[AV]sitA 1', '[AV]sitB 1', '[AV]prop', '[AV]faces', '[AV]camera 1', 'My plugin']
 

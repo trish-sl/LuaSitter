@@ -39,8 +39,8 @@
     - adjust/keys follow AMENU; swap follows SWAP, ONSIT ASK and [LS]select.
     - There is no "stand" command: unseating by script would bypass RLV.
 
-  Link messages: sends 90005, 90009, 90013, 90017, 90018, 90100, 90101;
-  receives 90005, 90016, 90020, 90065, 90070, 90100.
+  Link messages: sends 90005, 90009, 90013, 90017, 90018, 90100, 90101 (and
+  90021, 90022 for DUMP); receives 90005, 90016, 90020, 90065, 90070, 90100.
   (see LuaSitter2/LINK_MESSAGES.md)
 ]]
 

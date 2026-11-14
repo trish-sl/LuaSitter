@@ -2,7 +2,7 @@
 
 > **LuaSitter note:** This page is from the [AVsitter documentation](https://avsitter.github.io) (CC BY-SA 4.0, see [LICENSE](../LICENSE.md)), adapted for LuaSitter. Everything here applies to LuaSitter2: the AVpos notecard format and the link messages are unchanged. LuaSitter also reads the notecard under its new name, `LSpos` (preferred for new furniture). Script names differ: `[AV]name` is `[LS]name` in LuaSitter, and `[AV]sitA` + `[AV]sitB` are one script, `[LS]sit`. See [Migrating from AVsitter](../luasitter/migrating-from-avsitter.md) and the [LuaSitter notes](#luasitter-notes) at the end of this page.
 
-Nearly every feature of AVsitter can be controlled by editing the AVpos notecard. It defines everything about each SITTERs menu and poses. Much more is possible when you learn to manually write and edit the notecard yourself, rather than using only the [NEW] menu as described in the [Setup](avsitter2_home.md#setup) section.
+Nearly every feature of AVsitter can be controlled by editing the AVpos notecard. It defines everything about each SITTER's menu and poses. Much more is possible when you learn to manually write and edit the notecard yourself, rather than using only the [NEW] menu as described in the [Setup](avsitter2_home.md#setup) section.
 
 > **Note:** Your AVpos notecard should always be left as 'full perm', otherwise scripts can not read the notecard with the next owner.
 
@@ -122,15 +122,11 @@ Will send a link message with integer [90200](avsitter2_prop.md#message-90200--9
 
 Same as: `llMessageLinked(LINK_SET,90200,"Press Me",<avatar_uuid>);`
 
-<i class="fa fa-info-circle">_
-**Note:** If you want to replace the system's functionality while keeping the default button label, it's possible to use the zero-width space Unicode character `U+200B` to make it different to the script but identical visually. You can copy/paste that character from here: `(​)`.
-  
+> **Note:** If you want to replace the system's functionality while keeping the default button label, it's possible to use the zero-width space Unicode character `U+200B` to make it different to the script but identical visually. You can copy/paste that character from here: `(​)`.
 
 For example:
 
-<pre>
-BUTTON [SWAP]​|99
-</pre>
+    BUTTON [SWAP]​|99
 
 places a button whose label is identical to the system [SWAP] label, but it will send a link message with integer 99. Our custom script would react to this.
 
@@ -449,7 +445,7 @@ SYNC Kiss3|couples6_Male
 
 ## "Built-In" animation sequence
 
-You can play animations in a series simply by adding extra animations to the [POSE](avsitter2_avpos.md#pose) (or [SYNC](avsitter2_avpos.md#sync)) commands. The animations all share the same position/rotation in the notecard, therefore they *must* be designed to be played together. This can be a continuous scene OR simply regular looped animations that were made as a sequence compatible set (all using use the same position/rotation).
+You can play animations in a series simply by adding extra animations to the [POSE](avsitter2_avpos.md#pose) (or [SYNC](avsitter2_avpos.md#sync)) commands. The animations all share the same position/rotation in the notecard, therefore they *must* be designed to be played together. This can be a continuous scene OR simply regular looped animations that were made as a sequence compatible set (all using the same position/rotation).
 
 The format for the notecard is as follows:
 
@@ -531,12 +527,13 @@ Some additional notecard commands exist _([read here for more information](avsit
 - DFLT 0 - don't revert to the default pose when all avatars stand (unless the last pose was a SYNC pose).
 - NOWIPE - tells the scripts not to wipe sittargets in other prims (use only if you have a good reason as you may end up with prims that have unnecessary SitTargets). (LuaSitter: neither the AVsitter2 nor the LuaSitter scripts read a NOWIPE line; it is ignored.)
 
-> **Important:** Extra commands are not part of settings [DUMP] so you would need to remember to leave them at the top of your notecard. (LuaSitter: HELPER, KFM, LROT, WARN and DFLT are now included in the [DUMP]; see the [LuaSitter notes](#luasitter-notes).)
+> **Important:** Extra commands are not part of settings [DUMP] so you would need to remember to leave them at the top of your notecard. (LuaSitter: HELPER, KFM, LROT, WARN and DFLT are included in the [DUMP]; see the [LuaSitter notes](#luasitter-notes).)
 
 ## LuaSitter notes
 
 - The AVpos notecard format is unchanged. Every command on this page works the same in LuaSitter2.
-- **Notecard name:** LuaSitter reads a notecard named `LSpos` (preferred for new furniture) or, if there is none, `AVpos`. The content is identical, so an existing AVpos notecard can be used as it is or simply renamed. Keep the name `AVpos` if the furniture also has LSL plugins that read the notecard themselves.
-- **Per-sitter notecards (new, optional):** a notecard named `LSpos sitter 1`, `LSpos sitter 2`, ... is read as that sitter's section by `[LS]sit N`, `[LS]faces-camera` and `[LS]select`. A `SITTER N` line inside it is optional. Keep global settings (MTYPE, SET, AMENU, ...), `SITTER` lines with M/F genders, PROP lines and RLV lines in the main `LSpos` or `AVpos`. Names like `LSpos 1` or `AVpos 1` are not read: Second Life gives those names to duplicate copies (for example when a notecard is given to an object that already has one), and `LS-setup-checker` reports them as duplicates to delete.
-- **DUMP** now also writes KFM, LROT, DFLT, WARN, BRAND, ROLES and ONSIT when they differ from the default, the full AMENU value, and the RLV plugin's settings. AVsitter2 dropped these when you re-dumped.
+- **Notecard name:** LuaSitter reads a notecard named `LSpos` (preferred for new furniture) or, if there is none, `AVpos`. The content is identical, so an existing AVpos notecard can be used as it is or renamed. Keep the name `AVpos` if the furniture also has LSL plugins that read the notecard themselves.
+- **Per-sitter notecards (optional):** a notecard named `LSpos sitter 1`, `LSpos sitter 2`, ... is read as that sitter's section by `[LS]sit N`, `[LS]faces-camera` and `[LS]select`. A `SITTER N` line inside it is optional. Keep global settings (MTYPE, SET, AMENU, ...), `SITTER` lines with M/F genders, PROP lines and RLV lines in the main `LSpos` or `AVpos`. Names like `LSpos 1` or `AVpos 1` are not read: Second Life gives those names to duplicate copies (for example when a notecard is given to an object that already has one), and `LS-setup-checker` reports them as duplicates to delete.
+- **DUMP** also writes KFM, LROT, DFLT, WARN, BRAND, ROLES and ONSIT when they differ from the default, the full AMENU value, and the RLV plugin's settings. AVsitter2's DUMP left these out.
 - The `SEQUENCE` command reads sequences (in `[LS]plugins`) from `[LS]sequence_settings`, or `[AV]sequence_settings` if that is the notecard you have.
+- **Checking the notecard:** `LS-setup-checker` **NOTECARD** lists the lines that the scripts ignore or misread, with their line numbers (see [Troubleshooting: notecard check](../luasitter/troubleshooting.md)). The sit scripts themselves do not report notecard problems.

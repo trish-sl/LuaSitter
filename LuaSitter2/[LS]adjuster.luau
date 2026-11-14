@@ -15,27 +15,29 @@
     - [NEW] menu: create POSE / SYNC / SUBMENU / PROP / FACE / CAMERA entries.
     - [SAVE]: push the current positions of all sitters to the sit memory.
     - [HELPER]: rez helper objects ("[LS]helper", or legacy "[AV]helper") that
-      move poses when moved. Chat protocol with the helper is unchanged, so old
-      [AV]helper objects keep working.
+      move poses when moved. The chat protocol with the helper is the same as
+      upstream, so [AV]helper objects work too.
     - [DUMP]: print the LSpos notecard text to the owner in chat.
 
   Changes compared to [AV]adjuster
-    - Script names: [AV]sitA -> [LS]sit, [AV]prop -> [LS]plugins (props, merged
-      with sequence and favs), [AV]faces + [AV]camera -> [LS]faces-camera.
-    - The DUMP chain asks [LS]plugins, [LS]faces-camera and [LS]root-RLV.
-    - Says a notice on every rez/start (and shows one in the [NEW] menu) that this
-      is a setup tool the creator can delete before the furniture is sold or
-      given away. It may stay: a customer who owns it is told they can use it.
-    - The DUMP chain also asks [LS]root-RLV (issue #18) after the camera plugin.
-    - The "V:" dump line carries extra fields (KFM, LROT, DFLT, WARN, BRAND,
-      ROLES, ONSIT) that upstream never dumped (data loss on re-dump). They are
-      now written in the header. Missing fields (old sitter scripts) = defaults.
+    - Script names: [AV]sitA -> [LS]sit, [AV]prop -> [LS]plugins (props,
+      sequences and favourites in one script), [AV]faces + [AV]camera ->
+      [LS]faces-camera.
+    - The DUMP chain asks [LS]plugins, [LS]faces-camera, [LS]root-RLV
+      (issue #18) and [LS]commands, in that order.
+    - Prints a notice on every rez/start (and shows a reminder in the [NEW]
+      menu) that this is a setup tool the creator can delete before the
+      furniture is sold or given away. It may stay: a customer who owns it is
+      told they can use it.
+    - The "V:" dump line carries fields upstream did not have (KFM, LROT, DFLT,
+      WARN, BRAND, ROLES, ONSIT); they are written in the notecard header.
+      Missing fields (older sitter scripts) mean defaults.
     - Header line reads "LuaSitter <version>".
-    - New link message 90032 (swap sitters and return the menu, issue #140) is
-      handled exactly like 90030.
-    - DUMP goes to chat only. The upstream web "Settings copy" (avsitter.com /
-      php/settings.php) was removed: LuaSitter does not use a dump server.
-    - FormatFloat rewritten with string.format (same output as upstream).
+    - Link message 90032 (swap sitters and return the menu, issue #140) is
+      handled like 90030.
+    - DUMP goes to chat only: the upstream web "Settings copy"
+      (avsitter.com/settings.php) is not used, LuaSitter has no dump server.
+    - FormatFloat uses string.format (same output as upstream).
 ]]
 
 local VERSION = "3.0-lua1"
@@ -59,7 +61,7 @@ local function posCard(n: number?): string
     return "LSpos"
 end
 
--- Character count (ll.StringLength is deprecated; # counts bytes, utf8.len counts characters).
+-- Character count (# counts bytes; ll.StringLength is deprecated).
 local function charLen(s: string): number
     return utf8.len(s) or #s
 end
@@ -174,7 +176,7 @@ end
 -- Names
 --------------------------------------------------------------------------
 local helper_names = { "[LS]helper", "[AV]helper" }
-local prop_script = "[LS]plugins"            -- props (together with sequence and favs)
+local prop_script = "[LS]plugins"            -- props (with sequences and favourites)
 local expression_script = "[LS]faces-camera" -- facial expressions and cameras
 local camera_script = expression_script
 local rlv_script = "[LS]root-RLV"
@@ -487,14 +489,13 @@ end
 -- DUMP
 --------------------------------------------------------------------------
 -- [LS]faces-camera answers for every sitter (the copy responsible for that sitter replies)
-local dump_scripts = { prop_script, expression_script, rlv_script, "[LS]commands" } -- LuaSitter: + [LS]commands (COMMANDS line)
+local dump_scripts = { prop_script, expression_script, rlv_script, "[LS]commands" } -- [LS]commands dumps its COMMANDS line
 
 -- 90021: a script finished dumping sitter <msg>; ask the next one
 local function dump_next(msg: string, id: string)
     local script_channel = int(msg)
-    -- LSL used llListFindList (-1 when not found, e.g. id "" from the sit
-    -- script) and pre-incremented, so the search starts after the script that
-    -- just reported, or at the first plugin.
+    -- Start after the script that just reported, or at the first plugin when id
+    -- is not a plugin (e.g. "" from the sit script).
     local start = (table.find(dump_scripts, id) or 0) + 1
     for i = start, #dump_scripts do
         if ll.GetInventoryType(dump_scripts[i]) == INVENTORY_SCRIPT then
@@ -943,9 +944,8 @@ end)
 --------------------------------------------------------------------------
 -- Init (was state_entry)
 --------------------------------------------------------------------------
--- [LS]adjuster is a setup tool. Creators often forget it in sold products, so remind
--- the owner every time the object is rezzed or the script starts. It may stay in
--- sold furniture: a customer can use it to adjust and add poses.
+-- Reminds the owner on every rez or script start that this is a setup tool. It may
+-- stay in sold furniture: a customer can use it to adjust and add poses.
 local function setup_tool_notice()
     local name = ll.GetScriptName()
     if ll.GetOwner() == ll.GetCreator() then

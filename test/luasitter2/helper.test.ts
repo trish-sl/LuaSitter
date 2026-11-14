@@ -1,7 +1,9 @@
 // LuaSitter2: [LS]helperscript, the script in the helper object that [LS]adjuster
 // rezzes: label and name, moving to the pose, the MENU / DONE / SWAP messages,
 // moving the helper to an avatar ("/5 <key>"), sitting on it (refused, or the old
-// helper method), the start parameter 0 (rezzed by hand) and the one-day timeout.
+// helper method), the start parameter 0 (rezzed by hand) and the one-day timeout;
+// an original helper's shape and colour, the "Anyone Can Move" warning, hex
+// sitter numbers, llSetRegionPos, DONEA with nobody / without permission.
 import { describe, it, expect } from 'vitest'
 import type { Script } from '@rezless/vitest'
 import { buildFurniture, LS2_SCRIPTS, OWNER } from '../helpers/furniture.js'
@@ -281,5 +283,146 @@ describe('LuaSitter2 [LS]helperscript rezzed by hand', () => {
     prim.params.position = { ...prim.params.position, x: prim.params.position.x + 1 }
     f.settle(1_000)
     expect(moved()).toBe(n)
+  })
+})
+
+describe('LuaSitter2 [LS]helperscript: more', () => {
+  /** A helper object on its own (the script in a furniture-less prim), with mocks set before it starts. */
+  async function lone(setup: (s: Script) => void = () => {}) {
+    const f = await buildFurniture({ sources: LS2_SCRIPTS, scripts: ['[LS]helperscript'] })
+    const s = f.script('[LS]helperscript')
+    setup(s)
+    f.start()
+    f.settle()
+    return { f, s }
+  }
+  // start parameter as [LS]adjuster encodes it: comm channel -5000000, sitter 2
+  const START = -5000002
+  const CHAN = -5000000
+  const original = (s: Script) => {
+    // an original helper: its script made by the object's creator (rezless leaves the item creator empty)
+    s.mock('llGetCreator', () => OWNER)
+    s.mock('llGetInventoryCreator', () => OWNER)
+  }
+  const lastParams = (s: Script) => s.callsOf('llSetLinkPrimitiveParamsFast').at(-1)!.args[1] as unknown[]
+  const round = (v: { x: number; y: number; z: number }) => [v.x, v.y, v.z].map((n) => Math.round(n * 1000) / 1000)
+
+  it('an original helper is coloured on start, and shaped into a box sized for its sitter when rezzed', async () => {
+    const { f, s } = await lone(original)
+    const init = s.callsOf('llSetLinkPrimitiveParamsFast')[0]!.args[1] as unknown[]
+    // only an original helper gets the start colour (alpha 0.7) and no glow
+    expect(init).toContain(18) // PRIM_COLOR
+    expect(init[init.indexOf(18) + 3]).toBeCloseTo(0.7, 5)
+    expect(init).toContain(25) // PRIM_GLOW
+    s.fire('on_rez', { start_param: START })
+    f.settle()
+    expect(f.prims[0]!.name).toBe('[LS]helper 2')
+    expect(s.chat.find((c) => c.channel === CHAN)?.text).toBe('REG|2')
+    const p = lastParams(s)
+    expect(p[0]).toBe(9) // PRIM_TYPE (box)
+    const size = p[p.indexOf(PRIM_SIZE) + 1] as { x: number; y: number; z: number }
+    // 0.12 x 0.12 x 3.5, 1 mm thinner per sitter number so helpers at one spot can be told apart
+    expect(round(size)).toEqual([0.118, 0.118, 3.5])
+  })
+
+  it('warns its creator when it is not set to "Anyone Can Move"', async () => {
+    const { f } = await lone((s) => {
+      s.mock('llGetObjectPermMask', () => 0)
+      s.mock('llGetInventoryCreator', () => OWNER)
+    })
+    expect(f.printed('[LS]helperscript')).toContain("WARNING! The helper should be set to 'Anyone Can Move'")
+    const { f: movable } = await lone((s) => {
+      s.mock('llGetObjectPermMask', () => 0x80000) // PERM_MOVE
+      s.mock('llGetInventoryCreator', () => OWNER)
+    })
+    expect(movable.printed('[LS]helperscript')).toEqual([])
+  })
+
+  it('touching a helper rezzed by hand says nothing to the adjuster', async () => {
+    const { f, s } = await lone()
+    s.fire('touch_start', { num_detected: 1 })
+    f.settle()
+    expect(s.chat.filter((c) => c.text.startsWith('MENU|'))).toEqual([])
+  })
+
+  it('reads sitter numbers as LSL integer casts do (hex too)', async () => {
+    const { f, s } = await lone()
+    s.fire('on_rez', { start_param: START })
+    f.settle()
+    s.deliverChat({ channel: CHAN, name: 'Furniture', key: OWNER, message: 'DONE|0x3' })
+    f.settle()
+    expect(s.dead).toBe(false)
+    s.deliverChat({ channel: CHAN, name: 'Furniture', key: OWNER, message: 'DONE|0x2' })
+    f.settle()
+    expect(s.dead).toBe(true)
+  })
+
+  it('jumps with llSetRegionPos when the pose position could not be set directly', async () => {
+    const f = await workshop()
+    helperMode(f)
+    const s = helperScript(f)
+    // in Second Life PRIM_POSITION moves at most 10 m: the helper is left where it was
+    s.mock('llGetPos', () => ({ x: 1, y: 2, z: 3 }))
+    const chan = s.listens.find((l) => l.channel !== 5)!.channel
+    s.deliverChat({ channel: chan, name: 'Furniture', key: f.prims[0]!.key, message: `POS|0|<140,128,25>|<0,0,0,1>|0|${OWNER}` })
+    f.settle()
+    const jumps = s.callsOf('llSetRegionPos').map((c) => round(c.args[0] as { x: number; y: number; z: number }))
+    expect(jumps).toEqual([[140, 128, 25]])
+  })
+
+  it('removes itself one day after it was rezzed when it is not moved', async () => {
+    const f = await workshop()
+    helperMode(f)
+    const h = helpers(f)[0]!
+    const s = helperScript(f)
+    f.settle(5_000)
+    expect(h.dead).toBeFalsy()
+    // a day of 0.01 s timer ticks is too slow to simulate, and SLua's ll.GetTime is answered by
+    // the VM (not a mockable builtin): move the script's llGetTime reference back one day instead
+    ;(s as unknown as { clockView: { timeReferenceMs: number } }).clockView.timeReferenceMs -= 86_400_000
+    f.settle(500)
+    expect(h.dead).toBe(true)
+    expect(s.chat.filter((c) => c.text === 'GETUP')).toEqual([])
+  })
+})
+
+describe('LuaSitter2 [LS]helperscript old helper method: more', () => {
+  it('DONEA with nobody on the helper removes it without GETUP', async () => {
+    const f = await workshop(`HELPER 1\n${ONE}`)
+    f.click(owner, '[ADJUST]')
+    f.click(owner, '[HELPER]')
+    f.settle(3_000)
+    const h = helpers(f)[0]!
+    const s = helperScript(f)
+    const chan = s.listens.find((l) => l.channel !== 5 && l.channel !== -2907539)!.channel
+    s.deliverChat({ channel: chan, name: 'Furniture', key: f.prims[0]!.key, message: 'DONEA' })
+    f.settle()
+    expect(h.dead).toBe(true)
+    expect(helperSaid(s)).not.toContain('GETUP')
+  })
+
+  it('DONEA with someone on the helper who refused animation permission: GETUP, no animation stopped', async () => {
+    const f = await workshop(`HELPER 1
+${ONE}`)
+    f.click(owner, '[ADJUST]')
+    f.click(owner, '[HELPER]')
+    f.settle(3_000)
+    const h = helpers(f)[0]!
+    const s = helperScript(f)
+    const wo = f.world.avatars.find((a) => a.key === owner.key)!
+    if (wo.sittingOn) f.world.standAvatar(wo)
+    f.settle()
+    f.world.sitAvatar(wo, h.prims[0]!)
+    f.settle()
+    expect(s.permissionRequests.at(-1)!.agent).toBe(owner.key)
+    s.fire('run_time_permissions', { perm: 0 }) // refused: the sit animation is not stopped
+    const stops = s.callsOf('llStopAnimation').length
+    expect(stops).toBe(0)
+    const chan = s.listens.find((l) => l.channel !== 5 && l.channel !== -2907539)!.channel
+    s.deliverChat({ channel: chan, name: 'Furniture', key: f.prims[0]!.key, message: 'DONEA' })
+    f.settle()
+    expect(helperSaid(s).at(-1)).toBe('GETUP')
+    expect(s.callsOf('llStopAnimation')).toHaveLength(0)
+    expect(h.dead).toBe(true)
   })
 })

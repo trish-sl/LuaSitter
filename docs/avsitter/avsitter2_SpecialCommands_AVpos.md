@@ -2,8 +2,6 @@
 
 > **LuaSitter note:** This page is from the [AVsitter documentation](https://avsitter.github.io) (CC BY-SA 4.0, see [LICENSE](../LICENSE.md)), adapted for LuaSitter. Everything here applies to LuaSitter2: the AVpos notecard format and the link messages are unchanged. LuaSitter also reads the notecard under its new name, `LSpos` (preferred for new furniture). Script names differ: `[AV]name` is `[LS]name` in LuaSitter, and `[AV]sitA` + `[AV]sitB` are one script, `[LS]sit`. See [Migrating from AVsitter](../luasitter/migrating-from-avsitter.md) and the [LuaSitter notes](#luasitter-notes) at the end of this page.
 
-# Special Commands - AVpos
-
 This page is devoted to explaining a few special commands that can be included in the `AVpos` notecard. It's important to note that these commands are not dumped by the `[DUMP]` utility, so we have to manually add them at the top of the `AVpos` notecard.
 
 ## HELPER
@@ -16,7 +14,7 @@ _Original discussion can be found at [https://avsitter.com/qa/49](https://avsitt
 
 ## KFM
 
-If you place `KFM 1` at the top of all `AVpos` notecards in the object, it will tell the scripts to expect the use of [llSetKeyframedMotion()](http://wiki.secondlife.com/wiki/LlSetKeyframedMotion) (e.g. for rocking chair or swaying raft, etc). This was added in version `2.01-08`
+If you place `KFM 1` at the top of all `AVpos` notecards in the object, it will tell the scripts to expect the use of [llSetKeyframedMotion()](http://wiki.secondlife.com/wiki/LlSetKeyframedMotion) (e.g. for rocking chair or swaying raft, etc). This was added in version `2.01-08`.
 
 With this command, Key Framed Motion will be paused momentarily when avatars change pose. The Key Framed Motion will then immediately be resumed.
 
@@ -52,7 +50,7 @@ The special command `WARN` is used to control if certain warning messages will s
 
 ### WARN 0
 
-In Second Life, less prims than sitting avatars can result in SL's `"No room to sit here"` error when furniture is used within the 'bounding box' of another prim. e.g. a sim-surround landscape sculpty or mesh house. To help prevent people going into that problem unaware, AVsitter2 will give you a warning in a dropdown menu if you are not using the safe minimum prims, `"There aren't enough prims for required SitTargets. You must have one prim for each avatar to sit!"`.
+In Second Life, fewer prims than sitting avatars can result in SL's `"No room to sit here"` error when furniture is used within the 'bounding box' of another prim. e.g. a sim-surround landscape sculpty or mesh house. To help prevent people running into that problem unaware, AVsitter2 will give you a warning in a dropdown menu if you are not using the safe minimum prims, `"There aren't enough prims for required SitTargets. You must have one prim for each avatar to sit!"`.
 
 You have the option to disable the warning by placing `WARN 0` at the top of the `AVpos` notecard, but then your users are at risk of receiving SL's `"No room to sit here"` error. Instead, it is suggested that you always have a prim count equal to or more than the number of avatars you plan to sit.
 
@@ -62,7 +60,7 @@ AVsitter2 adds all required sit-targets automatically but with AVsitter1 the `Si
 
 **Land Impact vs Prim Count**
 
-Please make sure you don't get _'Prim Count'_ confused with _'Land Impact'_. LI is not the same as 'Prim Count'. 1 prim doesn't quite mean what it used to, since the introduction of mesh. Each prim may influence the overall LI depending on its complexity and other factors. Two linked prims may have an LI value of 1, but they're still two prims. When we talk about the required prim count we refer to these two prims, whether their LI is 1, 2, or higher. The important for AVsitter is that the prim count is greater or equal than the number of planned sitters.
+Please make sure you don't get _'Prim Count'_ confused with _'Land Impact'_. LI is not the same as 'Prim Count'. 1 prim doesn't quite mean what it used to, since the introduction of mesh. Each prim may influence the overall LI depending on its complexity and other factors. Two linked prims may have an LI value of 1, but they're still two prims. When we talk about the required prim count we refer to these two prims, whether their LI is 1, 2, or higher. The important thing for AVsitter is that the prim count is greater than or equal to the number of planned sitters.
 
 _Original discussion can be found at [https://avsitter.com/qa/47](https://avsitter.com/qa/47)_
 
@@ -83,5 +81,6 @@ Starting from version 2.2-04, you can use `WARN 3` at the top of the notecard, t
 ## LuaSitter notes
 
 - These commands work unchanged in LuaSitter2.
-- Unlike AVsitter2, LuaSitter's [DUMP] includes `HELPER`, `KFM`, `LROT`, `WARN` (and `DFLT`) when they differ from the default, so they are no longer lost when you paste a new dump into the notecard.
+- LuaSitter's [DUMP] includes `HELPER`, `KFM`, `LROT`, `WARN` and `DFLT` when they differ from the default, so you do not need to add them by hand after pasting a new dump. (AVsitter2's DUMP included only `HELPER`.)
+- `WARN 0` only hides the "not enough prims" warning, as in AVsitter2.
 - `[AV]prop` is part of `[LS]plugins` in LuaSitter; `WARN 2` and `WARN 3` work the same there.

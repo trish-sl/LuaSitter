@@ -2,7 +2,7 @@
 
 > **LuaSitter note:** This page is from the [AVsitter documentation](https://avsitter.github.io) (CC BY-SA 4.0, see [LICENSE](../LICENSE.md)), adapted for LuaSitter. Everything here applies to LuaSitter2: the AVpos notecard format and the link messages are unchanged. LuaSitter also reads the notecard under its new name, `LSpos` (preferred for new furniture). Script names differ: `[AV]name` is `[LS]name` in LuaSitter, and `[AV]sitA` + `[AV]sitB` are one script, `[LS]sit`. See [Migrating from AVsitter](../luasitter/migrating-from-avsitter.md) and the [LuaSitter notes](#luasitter-notes) at the end of this page.
 
-# [AV]favs
+## [AV]favs
 
 `[AV]favs`, available since version 2.2r04, gives the user the ability to manage a list of their favorite poses in an engine. The use is simple: we can add the current pose to our favorites list, delete the current pose, and show a menu to select a pose to play among our favorites (select favorite menu).
 
@@ -53,4 +53,4 @@ Summarizing, these are the message codes the plugin expects:
 ## LuaSitter notes
 
 - Favourites are part of `[LS]plugins` (together with props and sequences). The BUTTON lines (90401, 90402, 90403) are unchanged.
-- Favourites are kept in memory only, as before. In LuaSitter they are also cleared when the AVpos or sequence notecard is changed, because that reloads `[LS]plugins`.
+- Favourites are kept in script memory only, as in AVsitter2. They are also cleared when the LSpos/AVpos or sequence notecard is changed, because that reloads `[LS]plugins`.

@@ -37,7 +37,7 @@ Do not overstate testing: "type-checks" and "tests pass" are not "tested in-worl
 
 ## The project in brief
 
-- LuaSitter is AVsitter rewritten in SLua (Second Life's Luau). LuaSitter2 (`LuaSitter2/`) is the current system, LuaSitter1 (`LuaSitter1/`) the legacy one. `AVsitter2/` and `AVsitter1/` are the original LSL sources, kept unchanged as a reference. Do not edit them.
+- LuaSitter is AVsitter rewritten in SLua (Second Life's Luau). LuaSitter2 (`LuaSitter2/`) is the current system, LuaSitter1 (`LuaSitter1/`) the legacy one. `Archive (Original AVSitter Source)/AVsitter2/` and `.../AVsitter1/` are the original LSL sources, kept unchanged as a reference. Do not edit them.
 - Documentation is in `docs/`, release notes in `docs/RELEASE_NOTES.md`, and the link message reference in `LuaSitter2/LINK_MESSAGES.md`.
 - Tests are in `test/` (see [test/README.md](test/README.md)).
 

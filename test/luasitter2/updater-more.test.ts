@@ -44,7 +44,7 @@ async function senderNear(f: Furniture, opts: { dx?: number; scripts?: Record<st
 /** Furniture with the LuaSitter receiver and an old LSpos. */
 async function furniture(opts: { name?: string; placeholders?: string[]; objects?: Record<string, string[]>; lslReceiver?: boolean } = {}) {
   const f = await buildFurniture({
-    sources: opts.lslReceiver ? { ...LS2_SCRIPTS, [RECEIVER]: REPO + 'AVsitter2/Utilities/Updater/update-receiver.lsl' } : LS2_SCRIPTS,
+    sources: opts.lslReceiver ? { ...LS2_SCRIPTS, [RECEIVER]: REPO + 'Archive (Original AVSitter Source)/AVsitter2/Utilities/Updater/update-receiver.lsl' } : LS2_SCRIPTS,
     scripts: [RECEIVER],
     placeholders: opts.placeholders,
     notecards: { LSpos: CARD },

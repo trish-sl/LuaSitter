@@ -29,16 +29,16 @@
   -------------------------
   - FIX: on_rez picked new comm/menu channels but kept listening on the old
     ones, so the EXTRAS menu and prop saving stopped working after re-rez.
-    The listens are now re-created on the new channels.
+    The listens are re-created on the new channels.
   - FIX: [CLEAR]/[OK]/selection loops deleted list items while iterating
     forwards and could skip an adjacent duplicate. All matches are removed.
   - FIX: the sound volume chosen in the sound menu was discarded ("|1" was
-    always stored); it is now saved.
-  - Inventory pages skip both "LShelper" and "AVhelper" objects (the old code
+    always stored); it is saved.
+  - Inventory pages skip both "LShelper" and "AVhelper" objects (upstream
     always subtracted one object from the page count).
   - FIX: running expression sequences pointed at list positions that went
     stale when a FACE was cleared/replaced (could send an empty animation
-    name to LSsit). They now reference the setting itself, and choosing a new
+    name to LSsit). They reference the setting itself, and choosing a new
     FACE stops the owner's previous sequence first.
   - Facial-expression timer uses LLTimers; items are given via a 1 s timer
     instead of llSleep(1) (one second apart, as before).
@@ -349,7 +349,7 @@ local function give_item(index: number, anim: string, id: string)
     local item = L(data, 1)
     local filter = L(data, 2)
     if filter == "" or filter == anim then
-        -- was llSleep(1) before each give: keep items one second apart
+        -- upstream: llSleep(1) before each give; keep items one second apart
         give_delay += 1
         LLTimers:once(give_delay, function()
             give_delay -= 1

@@ -166,6 +166,7 @@ TIMELOCK 5
 RECAPTURE 1
 ONCAPTURE @unsit=n|@fartouch=n
 ```
+
 Example for 1 submissive and 1 Dominant:
 
 ```
@@ -244,13 +245,15 @@ Example of use in "normal" furniture (SUBCONTROL 1, ONTOUCH NONE, ONSIT ASKONLY)
 ## LuaSitter notes
 
 - `[AV]root-RLV` and `[AV]root-RLV-extra` are one script in LuaSitter: `[LS]root-RLV`. The Restrict and Un/Dress menus are always available.
-- `[AV]root-control` is `[LS]root-control` and is still a separate script, because Menu Control can be used without RLV.
+- `[AV]root-control` is `[LS]root-control`, a separate script, because Menu Control can be used without RLV.
 - **Captives return to their pose:** an RLV captive who stands up or logs off and comes back is restored to the pose they had (AVsitter PR #149 by Chorazin Allen, with a bug fix).
 - **DUMP includes RLV settings:** the RLV lines of the AVpos notecard (RLV, SUBCONTROL, HTEXT, DOMPOSE, SUBPOSE, ONTOUCH, RECAPTURE, TIMELOCK, ONCAPTURE, ONRELEASE, WAITPOSE) are written by DUMP (AVsitter issue #18). ROLES and ONSIT are written too, by `[LS]sit`.
 - Link message 90015 (trigger [STOP]) is supported.
-- **Clearer menus.** LuaSitter renames some buttons and explains the others in each menu:
-  - pose menu: "Control..." is now **RLV ▸** (it opens the RLV menu);
-  - RLV menu: "Menu..." is now **◂ Poses** (back to the pose menu of that avatar), "Capture!" / "Release!" are **Capture** / **Release**, "Take Keys" / "Drop Keys" are **Lock menu** / **Unlock menu**;
-  - avatar lists: "Capture..." is now **Capture new…**.
-  Each RLV menu starts with where you are (for example "RLV ▸ Bob ▸ Timelock"), shows the status (captured, timelock, who holds the menu) and lists what its buttons do. The old button names are still accepted, and link message 90100 still carries "Control..." for LSL plugins.
-- `[AV]LockGuard`, `[AV]LockGuard-object`, `[AV]LockMeister` and `[AV]Xcite!` are `[LS]LockGuard`, `[LS]LockGuard-object`, `[LS]LockMeister` and `[LS]Xcite!`. The Xcite settings notecard is `[LS]Xcite_settings` (an `[AV]Xcite_settings` notecard is still read when there is no `[LS]` one).
+- **Menu button names.** Some buttons have different names in LuaSitter, and each menu explains its buttons:
+  - pose menu: **RLV ▸** (AVsitter: "Control...") opens the RLV menu;
+  - RLV menu: **◂ Poses** (AVsitter: "Menu...") goes back to the pose menu of that avatar; **Capture** / **Release** (AVsitter: "Capture!" / "Release!"); **Lock menu** / **Unlock menu** (AVsitter: "Take Keys" / "Drop Keys");
+  - avatar lists: **Capture new…** (AVsitter: "Capture...").
+
+  Each RLV menu starts with where you are (for example "RLV ▸ Bob ▸ Timelock") and shows the status (captured, timelock, who holds the menu). The AVsitter button names are also accepted, and link message 90100 carries "Control..." for LSL plugins, as in AVsitter.
+- `[AV]LockGuard`, `[AV]LockGuard-object`, `[AV]LockMeister` and `[AV]Xcite!` are `[LS]LockGuard`, `[LS]LockGuard-object`, `[LS]LockMeister` and `[LS]Xcite!`. The Xcite settings notecard is `[LS]Xcite_settings` (an `[AV]Xcite_settings` notecard is read when there is no `[LS]` one).
+- **Chains for all sitters from one script:** `[LS]chains` sets up LockGuard and LockMeister chains from a notecard, and can be used instead of `[LS]LockGuard` / `[LS]LockMeister` (not together with them). See [Chains](../luasitter/chains.md).

@@ -15,13 +15,14 @@
   [LS]adjuster rezzes, one per sitter. Moving the helper moves the pose; the
   adjuster is told with "MOVED|..." on the shared comm channel.
 
-  The chat protocol with the adjuster is unchanged (REG, POS, MOVED, MENU,
-  ANIMA, GETUP, DONE, DONEA, SWAP) and so is the start parameter encoding, so
-  this helper works with [LS]adjuster and with the old LSL [AV]adjuster, and
-  old [AV]helper objects keep working with [LS]adjuster.
+  The chat protocol (REG, POS, MOVED, MENU, ANIMA, GETUP, DONE, DONEA, SWAP)
+  and the start parameter encoding are the same as upstream, so this helper
+  works with [LS]adjuster and with the LSL [AV]adjuster, and [AV]helper
+  objects work with [LS]adjuster.
 
-  Behaviour changes: the object keeps its "[AV]helper" base name if it was
-  named like that, otherwise it uses "[LS]helper". Product text says LuaSitter.
+  Changes from upstream: the object keeps its "[AV]helper" base name if it
+  was named like that, otherwise it uses "[LS]helper". Product text says
+  LuaSitter.
 ]]
 
 local VERSION = "3.0-lua1"

@@ -81,9 +81,9 @@ To add props to a prim using [AV]menu:
 > **Tip:** If English is not your language, the videos have captions for automatic translation.
 
 ## Attachment Props
-Props can be set to request permission to attach to the avatar after they rez inworld. Even if your prop is an attachment it must rez inworld before it asks the avatar for permisison to attach.
+Props can be set to request permission to attach to the avatar after they rez inworld. Even if your prop is an attachment it must rez inworld before it asks the avatar for permission to attach.
 
-Before you place an attachment prop inside the furniture, you need to attach it and adjust it just like you would if editing prim clothing that you avatar wears. SL automatically remembers the attachment position for an object. When you are happy with the way it's attached, you then detach it and place it in the furniture.
+Before you place an attachment prop inside the furniture, you need to attach it and adjust it just like you would if editing prim clothing that your avatar wears. SL automatically remembers the attachment position for an object. When you are happy with the way it's attached, you then detach it and place it in the furniture.
 
 After setting up a prop, you can designate the prop to be an attachment by editing the AVpos notecard and changing its &lt;prop_type&gt; to PROP1 or PROP2 as described in the [Notecard Commands section](avsitter2_prop.md#notecard-commands).
 
@@ -336,11 +336,10 @@ default
 
 ### LSL Link Messages Source in [AV]menu
 
-If you're using [AV]menu, starting in a later version of AVsitter 2.2 (and in every version of LuaSitter's `[LS]menu`) you can select which prims to accept link messages from, by using the command `LMSOURCE` in the AVpos notecard as follows:
+If you're using [AV]menu, starting in a later version of AVsitter 2.2 (and in LuaSitter's `[LS]menu`) you can select which prims to accept link messages from, by using the command `LMSOURCE` in the AVpos notecard as follows:
 
 - `LMSOURCE 0` means that it accepts script link messages from the current prim only.
 - `LMSOURCE 1` means it accepts script link messages from any prim.
-
 
 ### Script Examples
 For AVprop script examples click [here](avsitter2_lsl_examples_avprop.md).
@@ -351,5 +350,5 @@ For AVprop script examples click [here](avsitter2_lsl_examples_avprop.md).
 - **Experience:** the "AVsitter" experience by Code Violet in the section above comes only with the packaged AVsitter `[AV]object`. `[LS]object` uses an experience only if you compile it with one of your own (choose it in the script editor); otherwise each attachment prop asks for permission to attach.
 - **Props clean up after themselves:** a prop that asks to attach and gets no answer within 120 seconds, or whose furniture disappears, removes itself (AVsitter issue #17).
 - **`[LS]menu` menus by link message:** 90004 opens the top menu and 90005 with a submenu name opens that submenu (AVsitter issues #75 and #77).
-- PROP lines must be in the main `AVpos` notecard (not in per-sitter `LSpos sitter N` notecards).
-- Changing the AVpos or sequence notecard reloads `[LS]plugins`; rezzed props are removed first, as `[AV]prop` did on an AVpos change.
+- PROP lines must be in the main `LSpos` or `AVpos` notecard (not in per-sitter `LSpos sitter N` notecards).
+- Changing the LSpos/AVpos or sequence notecard reloads `[LS]plugins`; rezzed props are removed first, as `[AV]prop` did on an AVpos change.

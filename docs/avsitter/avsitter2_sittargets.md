@@ -93,4 +93,5 @@ default
 
 ## LuaSitter notes
 
-- Sit targets work exactly as described here. Use `[LS]sit` copies where this page mentions `[AV]sitA` copies.
+- Sit targets work exactly as described here. Where this page mentions an [AV]sit (A+B) pair of scripts, use one `[LS]sit` script (`[LS]sit`, `[LS]sit 1`, ...).
+- `/5 targets` works the same with `[LS]adjuster`.

@@ -15,11 +15,11 @@
                   every animation in inventory.
     Shift       : AVpos-shifter. Shows its instructions, then listens on
                   channels 5 and 6 for position / rotation offsets, or for a
-                  touch on a child prim, and reads out the LSpos (or AVpos) notecard with
-                  the shifted positions (chat only; upstream also uploaded a
-                  copy to a web service).
+                  touch on a child prim, and reads out the LSpos (or AVpos)
+                  notecard with the shifted positions (chat only; upstream also
+                  uploaded a copy to a web service).
     MLP convert : MLP-converter. Converts .MENUITEMS* / .POSITIONS* MLP
-                  notecards into AVpos lines.
+                  notecards into LSpos / AVpos lines.
   The chat read-out of each tool is the same as the original one (same
   "◆" prefix, number formatting, quirks). The script removes itself when the
   original did (Generate / MLP: except from a "Utilities" box; Shift: always).
@@ -33,7 +33,7 @@
     could interleave two read-outs).
   - Notecards are read with the fast reader (GetNotecardLineSync).
   - Read-outs are paced by a queue of LLTimers (same 0.2 s / 0.1 s per line)
-    instead of llSleep; removing the script or returning to the menu is queued
+    instead of llSleep; removing the script or going back to idle is queued
     after the last line, so the output and its order are unchanged.
 ]]
 

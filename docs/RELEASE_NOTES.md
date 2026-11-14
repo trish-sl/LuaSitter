@@ -7,7 +7,7 @@ First release of LuaSitter: a rewrite of AVsitter2 and AVsitter1 in SLua (Second
 ### Highlights
 
 - All AVsitter2 and AVsitter1 scripts, plugins and utilities ported to SLua. Scripts are named `[LS]...` instead of `[AV]...`.
-- AVpos notecards are 100% compatible, and the link message API is unchanged, so LSL plugins keep working.
+- `AVpos` notecards are 100% compatible, and the link message API is unchanged, so LSL plugins keep working.
 - Fewer scripts:
   - `[AV]sitA` + `[AV]sitB` merged into `[LS]sit` (one script per sitter instead of two);
   - `[AV]root-RLV` + `[AV]root-RLV-extra` merged into `[LS]root-RLV`;
@@ -24,6 +24,9 @@ First release of LuaSitter: a rewrite of AVsitter2 and AVsitter1 in SLua (Second
 - Per-sitter notecards named `LSpos sitter N` (based on AVsitter PR #151). For that sitter, the per-sitter notecard replaces their section of the main notecard. Names like `LSpos 1` / `AVpos 1` are not read, because Second Life gives those names to duplicate copies.
 - `LS-update-sender` Migrate mode: replaces the AVsitter scripts of the furniture around the sender with their LuaSitter versions (copies keep their number), after saying the plan in chat and asking APPLY. Notecards, props and other scripts are kept; a prim is only changed when every new script arrived.
 - `[LS]commands` plugin (optional): chat commands for sitters on channel 1888 (or `COMMANDS <channel>`), for gestures: menu, adjust, keys, swap, next, prev, rlv, help. Also arrow-key pose adjusting (0.01 m / 1° per press; Shift + Left / Right turn the pose) with a "Keys" button in the personal adjust menu. Commands follow `[LS]root-security` menu access, RLV roles, AMENU and SWAP. New link messages 90013, 90016, 90017, 90018.
+- `[LS]chains` plugin (optional): LockGuard V2 and LockMeister chains for every sitter from one script, set up in a `[LS]chains_settings` notecard (`CHAIN pose|sitter|cuff,ring,...`) instead of editing the script. Sitters can switch their chains on and off from the menu (link messages 90240/90241/90242, or an older product's own numbers with `TOGGLE`). `[LS]LockGuard` and `[LS]LockMeister` are unchanged. See [Chains](luasitter/chains.md).
+- `[LS]options` plugin (optional): change textures, colours, alpha, glow, fullbright, lights and sounds of named prims without custom scripts, for example a bed lamp, sheet colours or music. Set in a `[LS]options_settings` notecard, per pose (optionally per sitter), by menu button (link message 90250, or the numbers of existing BUTTON lines), or when everyone has stood up. See [Options](luasitter/options.md).
+- Notecard check: `LS-setup-checker` has a new NOTECARD check that lists, with notecard and line number, every line the pose notecards ignore or misread: missing animations or prop objects, position lines without a pose or with bad vectors, settings that are not numbers, names that clash once cut to 23 characters, SITTER sections without a sit script, lines without their plugin, unknown or lower-case commands, SYNC poses missing from a section. See [Troubleshooting](luasitter/troubleshooting.md).
 - Link message 90032: swap sitters and return to the menu (AVsitter issue #140).
 - RLV captives return to their previous pose (AVsitter PR #149 by Chorazin Allen).
 - Clearer RLV menus: "RLV ▸" in the pose menu and "◂ Poses" in the RLV menu move between the two; every RLV menu says whose menu it is, the status and what each button does; plain button names ("Capture", "Release", "Lock menu"/"Unlock menu", "Capture new…"). The AVsitter names still work, and 90100 still carries "Control...".
@@ -37,7 +40,7 @@ First release of LuaSitter: a rewrite of AVsitter2 and AVsitter1 in SLua (Second
 - `[LS]adjuster` may stay in sold furniture: a customer who owns it is told they can use it to adjust, add and save poses. The creator is reminded on every rez (and in its [NEW] menu) to delete it before selling if customers should not edit poses.
 - DUMP and the `[LS]menu` readout say which notecard to paste into (`LSpos`, or `AVpos` when that is the notecard in use).
 - DUMP, the setup report and the notecard shifter print to chat only. The web "Settings copy" upload was removed.
-- Changing the AVpos or sequence notecard reloads `[LS]plugins` as a whole: props are removed first (as `[AV]prop` did on an AVpos change) and favourites, which are kept in memory only, are cleared.
+- Changing the pose notecard (`LSpos` or `AVpos`) or the sequence notecard reloads `[LS]plugins` as a whole: props are removed first (as `[AV]prop` did on an AVpos change) and favourites, which are kept in memory only, are cleared.
 - DUMP plugin ids are now `[LS]plugins`, `[LS]faces-camera` and `[LS]root-RLV` (link message 90020). LSL plugins that used `[AV]prop`, `[AV]faces` or `[AV]camera` as DUMP ids must use these.
 - Saving a camera for sitter N from the adjuster needs the `[LS]faces-camera N` copy (as `[AV]camera N` before).
 - `LS-update-sender`:

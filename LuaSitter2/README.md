@@ -28,12 +28,12 @@ Example: a 2-sitter bed with props, faces, cameras, sequences and favourites use
 
 ## What each script does
 
-### Core (in the prim with the AVpos notecard)
+### Core (in the prim with the pose notecard)
 
 | Script | Replaces | What it does |
 | --- | --- | --- |
-| `[LS]sit`, `[LS]sit 1`, ... | `[AV]sitA` + `[AV]sitB` | **Required, one per sitter.** Reads AVpos, sets the sit target, animates and positions its sitter, shows the pose menu and the personal [ADJUST] menu, and keeps personal position offsets. One copy per sitter is still needed because a script can only hold animation permission for one avatar at a time. |
-| `[LS]adjuster` | `[AV]adjuster` | Setup tool for creators. Rezzes helpers, adds poses, submenus, props, faces and cameras from the menu, and DUMPs the setup as AVpos notecard text in chat. Delete it before selling if customers should not edit poses: it reminds the creator in chat every time the object is rezzed, and in its [NEW] menu. Type `/5 cleanup` to remove it and the helper. It may also stay: customers can then adjust and save poses with it. |
+| `[LS]sit`, `[LS]sit 1`, ... | `[AV]sitA` + `[AV]sitB` | **Required, one per sitter.** Reads the pose notecard, sets the sit target, animates and positions its sitter, shows the pose menu and the personal [ADJUST] menu, and keeps personal position offsets. One copy per sitter is still needed because a script can only hold animation permission for one avatar at a time. |
+| `[LS]adjuster` | `[AV]adjuster` | Setup tool for creators. Rezzes helpers, adds poses, submenus, props, faces and cameras from the menu, and DUMPs the setup as pose notecard text in chat. Delete it before selling if customers should not edit poses: it reminds the creator in chat every time the object is rezzed, and in its [NEW] menu. Type `/5 cleanup` to remove it and the helper. It may also stay: customers can then adjust and save poses with it. |
 | `[LS]select` | `[AV]select` | Optional. Sitters pick a seat from a menu instead of using [SWAP]. |
 | `[LS]root-security` | `[AV]root-security` | Optional. Limits who can sit and who can use the menu (owner / group / all). |
 
@@ -53,8 +53,8 @@ Example: a 2-sitter bed with props, faces, cameras, sequences and favourites use
 
 | Script | Replaces | What it does |
 | --- | --- | --- |
-| `[LS]plugins` | `[AV]prop` + `[AV]sequence` + `[AV]favs` | One script for three features, each switched on by notecard content, so unused features cost nothing:<br>- **Props:** rezzes, attaches and removes props when poses play (PROP lines).<br>- **Sequences:** plays timed sequences of poses (SEQUENCE buttons and the `[LS]sequence_settings` or `[AV]sequence_settings` notecard).<br>- **Favourites:** personal favourite pose lists (BUTTON lines sending 90401-90403).<br>Changing AVpos or the sequence notecard resets the whole script (props are removed first; favourites are kept in memory only and are cleared). |
-| `[LS]object` | `[AV]object` | Goes **inside each prop**. Handles attaching, derezzing and following the furniture. A prop that is never accepted or loses its furniture now removes itself (AVsitter issue #17). |
+| `[LS]plugins` | `[AV]prop` + `[AV]sequence` + `[AV]favs` | One script for three features, each switched on by notecard content, so unused features cost nothing:<br>- **Props:** rezzes, attaches and removes props when poses play (PROP lines).<br>- **Sequences:** plays timed sequences of poses (SEQUENCE buttons and the `[LS]sequence_settings` or `[AV]sequence_settings` notecard).<br>- **Favourites:** personal favourite pose lists (BUTTON lines sending 90401-90403).<br>Changing the pose notecard or the sequence notecard resets the whole script (props are removed first; favourites are kept in memory only and are cleared). |
+| `[LS]object` | `[AV]object` | Goes **inside each prop**. Handles attaching, derezzing and following the furniture. A prop that is never accepted (120 s) or loses its furniture removes itself (AVsitter issue #17). |
 | `[LS]menu` | `[AV]menu` | Menus and props for objects that have no sit scripts ("AVmenu"). Uses `[LS]plugins` for its props. Kept separate because it only works in objects without sit scripts (it removes itself when it finds `[LS]sit`). |
 | `[LS]faces-camera`, `[LS]faces-camera 1`, ... | `[AV]faces` + `[AV]camera` | Facial expressions (ANIM lines) and pose-specific cameras (CAMERA lines). Copy N handles sitter N. Cameras need one copy per sitter (camera control is a permission a script holds for one avatar); for faces, `[LS]faces-camera` (copy 0) also covers every sitter that has no copy of its own, so one copy is enough for faces alone. The `[FACES]` button in the [ADJUST] menu only appears for sitters that have ANIM lines. |
 | `[LS]root-RLV` | `[AV]root-RLV` + `[AV]root-RLV-extra` | RLV captures, restrictions, undress menu and timelock. The two upstream scripts are now one. |
@@ -63,15 +63,17 @@ Example: a 2-sitter bed with props, faces, cameras, sequences and favourites use
 | `[LS]LockGuard-object` | `[AV]LockGuard-object` | Goes inside props that act as chain points. |
 | `[LS]LockMeister` | `[AV]LockMeister` | LockMeister V1/V2 chains. |
 | `[LS]commands` | (new) | Chat commands for sitters, for gestures (`/1888 menu`, `adjust`, `keys`, `swap`, `next`, `prev`, `rlv`), and arrow-key pose adjusting ("Keys" in the adjust menu). Optional `COMMANDS <channel>` line. See [commands](../docs/luasitter/commands.md). |
+| `[LS]chains` | (new) | LockGuard V2 and LockMeister chains for all sitters from one script, set up in the `[LS]chains_settings` notecard (example included), with on/off (90240-90242). Use it instead of `[LS]LockGuard` / `[LS]LockMeister`, not with them. See [chains](../docs/luasitter/chains.md). |
+| `[LS]options` | (new) | Changes textures, colours, alpha, glow, fullbright, lights and sounds of named prims per pose or by menu button, set in the `[LS]options_settings` notecard. See [options](../docs/luasitter/options.md). |
 | `[LS]Xcite!` | `[AV]Xcite!` | Xcite! and Sensations support. Reads `[LS]Xcite_settings` (example included), or `[AV]Xcite_settings` when there is no `[LS]` notecard. |
 
 ### Utilities (drop in temporarily)
 
 | Script | Replaces | What it does |
 | --- | --- | --- |
-| `LS-setup-checker` | Anim-perm-checker, Missing-anim-finder, Noob-detector | Shows a menu: check animation permissions, find missing or unused animations, or make a setup report. **ALL** runs every check. It recognises both LuaSitter and AVsitter scripts and reports mixed setups. |
+| `LS-setup-checker` | Anim-perm-checker, Missing-anim-finder, Noob-detector | Shows a menu: check animation permissions, find missing or unused animations, list the problems in the pose notecards line by line (NOTECARD, see [Troubleshooting](../docs/luasitter/troubleshooting.md)), or make a setup report. **ALL** runs every check. It recognises both LuaSitter and AVsitter scripts and reports mixed setups. |
 | `LS-notecard-tools` | AVpos-generator, AVpos-shifter, MLP-converter | Shows a menu: generate POSE lines from the animations in inventory, shift all positions/rotations, or convert an MLP notecard. Output is the same as the original tools. |
-| `LS-update-sender`, `LS-update-receiver` | update-sender, update-receiver | Remote updating of object contents. Same protocol as upstream, so they work with the LSL versions. Touching the sender gives **Update** (as upstream), **Range** (how far to look: 100 m by default, up to the whole region; upstream: half the sender's size) or **Migrate**: replace the AVsitter scripts of the furniture around with LuaSitter scripts, after showing the plan. After a run it asks whether to remove the update receivers. The receiver shows no name label unless `show_name = true` ([how](../docs/luasitter/migrating-from-avsitter.md#migrating-many-objects-with-the-updater)). |
+| `LS-update-sender`, `LS-update-receiver` | update-sender, update-receiver | Remote updating of object contents. Same protocol as upstream, so they work with the LSL versions. Touching the sender gives **Update** (as upstream), **Range** (how far to look: 100 m by default, up to the whole region; AVsitter: half the sender's size) or **Migrate**: replace the AVsitter scripts of the furniture around with LuaSitter scripts, after showing the plan. After a run it asks whether to remove the update receivers. In inventory the receiver must be named `update receiver (auto removing)`, as in AVsitter. It shows no name label unless `show_name = true` ([how](../docs/luasitter/migrating-from-avsitter.md#migrating-many-objects-with-the-updater)). |
 
 ## Notecards
 
@@ -79,12 +81,13 @@ Example: a 2-sitter bed with props, faces, cameras, sequences and favourites use
 - The notecard is read exactly as in AVsitter2. Nothing needs to change in existing notecards.
 - **Other names, same rule** (`[LS]` name first, AVsitter name as fallback): `[LS]Xcite_settings` / `[AV]Xcite_settings`, `[LS]sequence_settings` / `[AV]sequence_settings`, and the hip fix animation `LShipfix` / `AVhipfix`. The example Xcite notecard in this repository is `[LS]Xcite_settings`.
 - **Fast loading:** notecards are read with `ll.GetNotecardLineSync`. When the simulator answers `NAK` (notecard not cached), the scripts fall back to the classic `ll.GetNotecardLine` + `dataserver` method automatically.
-- **Per-sitter notecards (optional):** `[LS]sit N`, `[LS]faces-camera` and `[LS]select` also read a notecard named `LSpos sitter N` if it exists. Its contents count as sitter N's section (a `SITTER N` line in it is optional). Global settings (MTYPE, SET, AMENU, ...) and `SITTER` lines with M/F genders still belong in the main notecard. `[LS]plugins` and `[LS]root-RLV` only read the main notecard, so keep PROP and RLV lines there. Names like `LSpos 1` or `AVpos 1` are not read: Second Life gives those names to duplicate copies (for example when a notecard is given to an object that already has one), and `LS-setup-checker` reports them as duplicates to delete.
+- **Per-sitter notecards (optional):** `[LS]sit N`, `[LS]faces-camera` and `[LS]select` also read a notecard named `LSpos sitter N` if it exists. Its contents count as sitter N's section (a `SITTER N` line in it is optional). Global settings (MTYPE, SET, AMENU, ...) and `SITTER` lines with M/F genders still belong in the main notecard. `[LS]plugins`, `[LS]root-RLV` and `[LS]commands` only read the main notecard, so keep PROP, RLV and COMMANDS lines there. Names like `LSpos 1` or `AVpos 1` are not read: Second Life gives those names to duplicate copies (for example when a notecard is given to an object that already has one), and `LS-setup-checker` reports them as duplicates to delete.
 - `LS-setup-checker` reports which notecard is in use and warns when both `LSpos` and `AVpos` are present (only `LSpos` is read then).
+- **Notecard check:** `LS-setup-checker` NOTECARD lists what the pose notecards ignore or read as 0 (missing animations, position lines without a pose or with bad vectors, settings that are not numbers, SITTER sections without a sit script, lines without their plugin...), with the line number. See [Troubleshooting: notecard check](../docs/luasitter/troubleshooting.md).
 
 ## Changes from AVsitter2
 
-- **DUMP** is faster and no longer freezes the sit scripts. It also keeps settings that upstream dumps lost: KFM, LROT, DFLT, WARN, BRAND, ROLES, ONSIT, the RLV plugin's settings (AVsitter issue #18), and AMENU's "4" flag.
+- **DUMP** is faster and doesn't freeze the sit scripts. It also keeps settings that upstream dumps lost: KFM, LROT, DFLT, WARN, BRAND, ROLES, ONSIT, the RLV plugin's settings (AVsitter issue #18), and AMENU's "4" flag.
 - **New link message 90032** swaps two sitters and gives them their menu back (AVsitter issue #140).
 - **The separator character** is written as an escape in the source, so copying and pasting a script can no longer break DUMP (AVsitter issues #147 and #152).
 - **Merged plugins:** props, sequences and favourites are one script (`[LS]plugins`); faces and cameras are one script per sitter (`[LS]faces-camera`).
@@ -93,8 +96,7 @@ Example: a 2-sitter bed with props, faces, cameras, sequences and favourites use
 - **`[FACES]` button** only appears for sitters that have facial expressions defined.
 - **Setup tool reminder:** `[LS]adjuster` reminds the creator on every rez that it can be deleted before selling; a customer who owns it is told they can use it.
 - **New notecard names:** `LSpos` (and `LSpos sitter N`, `[LS]Xcite_settings`, `[LS]sequence_settings`, `LShipfix`), with the AVsitter names still read as a fallback.
-- **No `ll.Sleep`:** every wait upstream did with `llSleep` (keyframed motion, sequence steps, DUMP pacing, RLV role changes, prop removal, notecard tools) is an `LLTimers` timer with the same duration. Where the order of events mattered, events arriving during a wait are still handled after it (see the script headers).
-- **No deprecated SLua functions:** `ll.OwnerSay`, `ll.StringLength`, `ll.VecMag` and `ll.Rot2Fwd`/`ll.Rot2Up` were replaced by `print`, `utf8.len`, `vector.magnitude` and `quaternion.tofwd`/`quaternion.toup` (Luau built-ins and fastcalls).
+- **No `ll.Sleep`:** every wait AVsitter did with `llSleep` (keyframed motion, sequence steps, DUMP pacing, RLV role changes, prop removal, notecard tools) is an `LLTimers` timer with the same duration and the same order of events.
 - **DUMP goes to chat only.** The upstream "Settings copy" web link and its server (`settings.php`) were removed. The setup checker's report and the notecard shifter also print to chat instead of uploading.
 
 ### Upstream fixes included
@@ -117,4 +119,4 @@ Several smaller upstream bugs found during the port are fixed too. Each is marke
 
 - Script names are looked up with the `[LS]` prefix. Where it is harmless, scripts also accept the old `[AV]` names (for example, an `[AV]helper` object or an LSL `[AV]sitA` next to `[LS]plugins`).
 - LSL plugins keep working: link message payloads are unchanged. In SLua the 4th link message parameter is a string; LSL scripts still receive a key.
-- The original LSL sources are in [../AVsitter2](../AVsitter2) for reference.
+- The original LSL sources are in [Archive (Original AVSitter Source)/AVsitter2](<../Archive (Original AVSitter Source)/AVsitter2>) for reference.

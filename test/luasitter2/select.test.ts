@@ -1,7 +1,9 @@
 // LuaSitter2: [LS]select, the seat menu: how seats are named (SITTER name, the
 // single pose, "Sitter N", per-sitter notecards), TEXT, SELECT 0/1/2 with SYNC
 // poses, [ADJUST], the blank filler button, reloading on notecard edits, the
-// NAK fallback and AVpos, and closing the listen when everyone has stood up.
+// NAK fallback and AVpos, and closing the listen when everyone has stood up;
+// own seat (90005), [HELPER], unknown answers, hex sitter numbers, SELECT/TEXT
+// in per-sitter cards, stray dataserver answers, paging after a re-sit.
 // The "[LS]sit N" scripts are placeholders: the tests send [LS]select the link
 // messages [LS]sit would send (90070 sat, 90065 stood, 90055 pose, 90009 menu).
 import { describe, it, expect } from 'vitest'
@@ -256,5 +258,107 @@ describe('LuaSitter2 [LS]select: reloading and listening', () => {
     expect(menuListen().active).toBe(true)
     f.stand(alice) // CHANGED_LINK, and the last link is a prim again
     expect(menuListen().active).toBe(false)
+  })
+})
+
+describe('LuaSitter2 [LS]select: more answers and notecard lines', () => {
+  const CARD = `SITTER 0|Left\nPOSE Sit|anim1\nSITTER 1|Right\nPOSE Sit|anim1`
+
+  it('ignores a text from a sitter that is no seat or menu button', async () => {
+    const f = await seats(CARD, { sitters: 2 })
+    const alice = f.avatar('Alice')
+    seat(f, 0, alice)
+    seatMenu(f, alice)
+    const before = f.dialogsFor(alice).length
+    const sent = f.linked().length
+    answer(f, alice, 'Somewhere')
+    expect(f.dialogsFor(alice)).toHaveLength(before)
+    expect(f.linked()).toHaveLength(sent)
+  })
+
+  it('choosing your own seat asks [LS]sit for the pose menu (90005) instead of swapping', async () => {
+    const f = await seats(CARD, { sitters: 2 })
+    const alice = f.avatar('Alice')
+    seat(f, 1, alice)
+    seatMenu(f, alice)
+    f.click(alice, 'Right')
+    expect(f.linked()).toContainEqual({ num: 90005, str: '', id: alice.key })
+    expect(f.linked().some((m) => m.num === 90030)).toBe(false)
+  })
+
+  it('[HELPER] from an old seat menu is passed on to [LS]sit (90101)', async () => {
+    const f = await seats(CARD, { sitters: 2 })
+    const alice = f.avatar('Alice')
+    seat(f, 0, alice)
+    seatMenu(f, alice)
+    answer(f, alice, '[HELPER]')
+    expect(f.linked()).toContainEqual({ num: 90101, str: `X|[HELPER]|${alice.key}`, id: alice.key })
+  })
+
+  it('a sitter number sent in hex (as LSL integer casts read it) seats the right sitter', async () => {
+    const f = await seats(`SELECT 2\n${CARD}`, { sitters: 2 })
+    const alice = f.avatar('Alice')
+    const bob = f.avatar('Bob')
+    seat(f, 0, alice)
+    f.sendLinked('[LS]select', 90070, '0x1', bob.key)
+    expect(seatButtons(seatMenu(f, alice)).sort()).toEqual(['Left', '⊘Bob '])
+  })
+
+  it('SELECT and TEXT in a per-sitter "LSpos sitter N" notecard are ignored', async () => {
+    const f = await seats(CARD, {
+      sitters: 2,
+      extra: { 'LSpos sitter 1': `SELECT 2\nTEXT Not here\nSITTER 1|Own\nPOSE Sit|anim1` },
+    })
+    const alice = f.avatar('Alice')
+    const bob = f.avatar('Bob')
+    seat(f, 0, alice)
+    seat(f, 1, bob)
+    // SELECT 0 (the default) still applies: a SYNC pose is not marked ⊘
+    f.sendLinked('[LS]select', 90055, '1', 'Cuddle|anim1|<0,0,0>|<0,0,0>|0|0')
+    const d = seatMenu(f, alice)
+    expect(seatButtons(d).sort()).toEqual(['Left', 'Own'])
+    expect(d.message).not.toContain('Not here')
+  })
+
+  it('ignores dataserver answers to other queries while reading with the NAK fallback', async () => {
+    const f = await buildFurniture({
+      sources: LS2_SCRIPTS,
+      scripts: ['[LS]select'],
+      placeholders: ['[LS]sit', '[LS]sit 1'],
+      notecards: { LSpos: CARD },
+      animations: ['anim1'],
+    })
+    const s = f.script('[LS]select')
+    s.mock('llGetNotecardLineSync', () => NAK)
+    f.start()
+    s.fire('dataserver', { queryid: '77777777-0000-0000-0000-000000000001', data: 'TEXT Wrong answer' })
+    f.settle(3_000)
+    const alice = f.avatar('Alice')
+    seat(f, 0, alice)
+    const d = seatMenu(f, alice)
+    expect(seatButtons(d).sort()).toEqual(['Left', 'Right']) // no line skipped
+    expect(d.message).not.toContain('Wrong answer')
+  })
+
+  it('a sitter who stood up and sat again gets a paged menu that works from an old dialog', async () => {
+    const lines: string[] = []
+    for (let i = 0; i < 15; i++) lines.push(`SITTER ${i}|Seat${i}`, 'POSE Sit|anim1')
+    const f = await seats(lines.join('\n'), { sitters: 15 })
+    const alice = f.avatar('Alice')
+    seat(f, 0, alice)
+    seatMenu(f, alice)
+    const page1 = f.lastDialog(alice).buttons
+    f.click(alice, '[>>]')
+    const page2 = f.lastDialog(alice).buttons
+    expect(page2).not.toEqual(page1)
+    // Alice stands up (90065 forgets her page) and sits again
+    f.sendLinked('[LS]select', 90065, '0', alice.key)
+    seat(f, 0, alice)
+    answer(f, alice, '[>>]') // from the old dialog: counts from the first page
+    expect(f.lastDialog(alice).buttons).toEqual(page2)
+    f.sendLinked('[LS]select', 90065, '0', alice.key)
+    seat(f, 0, alice)
+    answer(f, alice, ' ') // a blank button: the first page
+    expect(f.lastDialog(alice).buttons).toEqual(page1)
   })
 })

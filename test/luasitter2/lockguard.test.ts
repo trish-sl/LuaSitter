@@ -1,7 +1,8 @@
 // LuaSitter2: [LS]LockGuard (LockGuard V2 chains) and [LS]LockGuard-object (ring prims
 // in props). Basic link / unlink is in chains-updater.test.ts; this file covers missing
-// rings, sitter changes, link messages from other prims, and the USES_PROPS setup with a
-// ring prop rezzed by [LS]plugins.
+// rings, a one-prim furniture that is its own ring, sitter changes, link messages from
+// other prims, the USES_PROPS setup with a ring prop rezzed by [LS]plugins, and ring
+// props of several prims.
 //
 // USES_PROPS, SITTER and POSES are settings a builder edits at the top of the script.
 // The tests that need other settings load the real script with those lines changed.
@@ -128,6 +129,22 @@ describe('LuaSitter2 [LS]LockGuard (rings linked to the furniture)', () => {
     expect(said(f).slice(before)).toEqual([])
   })
 
+  it('a one-prim furniture named "ring1" is its own ring (link number 0)', async () => {
+    const f = await buildFurniture({
+      sources: LS2_SCRIPTS,
+      scripts: ['[LS]sit', '[LS]LockGuard'],
+      primNames: { 1: 'ring1' },
+      notecards: { LSpos: CARD },
+      animations: ['anim1', 'anim2', 'anim3'],
+    })
+    f.start()
+    const alice = f.avatar('Alice')
+    f.sit(alice) // arms: rightwrist ring1, leftwrist ring2 (none)
+    expect(said(f).filter((t) => t.includes(' link '))).toEqual([
+      `lockguard ${alice.key} rightwrist link ${f.prims[0]!.key} size 0.12 0.12 life 1 gravity 0.3 texture d7277e78-06f4-58ae-9f7c-7499e50de18a`,
+    ])
+  })
+
   it('ignores link messages from scripts in other prims', async () => {
     const f = await chained()
     const alice = f.avatar('Alice')
@@ -203,11 +220,12 @@ describe('LuaSitter2 [LS]LockGuard with other settings', () => {
 
 describe('LuaSitter2 [LS]LockGuard-object', () => {
   /** A prop with [LS]LockGuard-object, rezzed (on_rez) with a start parameter. */
-  async function prop(startParameter: number, primName = 'ring1') {
+  async function prop(startParameter: number, primName = 'ring1', more: { prims?: number; primNames?: Record<number, string> } = {}) {
     const f = await buildFurniture({
       sources: { '[LS]LockGuard-object': LG_OBJECT_FILE },
       scripts: ['[LS]LockGuard-object'],
-      primNames: { 1: primName },
+      prims: more.prims,
+      primNames: { 1: primName, ...more.primNames },
     })
     const s = f.script('[LS]LockGuard-object')
     s.mock('llGetStartParameter', () => startParameter)
@@ -235,6 +253,15 @@ describe('LuaSitter2 [LS]LockGuard-object', () => {
     inform(f)
     f.settle()
     expect(s.chat.filter((c) => c.channel === COMM).map((c) => c.text)).toEqual(['ATTACHPOINTS'])
+  })
+
+  it('a prop of several prims names each ring prim (any case), not the others', async () => {
+    const { f, s } = await prop(-1234, 'Frame', { prims: 4, primNames: { 2: 'ring1', 3: 'Post', 4: 'RING2' } })
+    inform(f)
+    f.settle()
+    expect(s.chat.filter((c) => c.channel === COMM).map((c) => c.text)).toEqual([
+      `ATTACHPOINTS|ring1|${f.prims[1]!.key}|RING2|${f.prims[3]!.key}`,
+    ])
   })
 
   it('does not listen when rezzed by hand (start parameter 0)', async () => {

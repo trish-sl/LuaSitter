@@ -2,7 +2,7 @@
 
 LuaSitter scripts talk to plugins with link messages, exactly like AVsitter. You can keep using LSL plugins, or write new ones in SLua. This page shows the SLua side; the messages themselves are described in [LSL Scripting](../avsitter/avsitter2_scripting.md) and the complete [link message reference](../../LuaSitter2/LINK_MESSAGES.md).
 
-> The SLua examples on this page are dedicated to the Public Domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). They type-check against the SLua definitions in this repository but should be tested in-world before use.
+> The SLua examples on this page are dedicated to the Public Domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). They type-check against Second Life's SLua type definitions, but test them in-world before use.
 
 ## SLua differences to keep in mind
 
@@ -49,10 +49,10 @@ end)
 
 ## Custom menu button
 
-A `BUTTON` line in the AVpos notecard sends a link message with the number you choose.
+A `BUTTON` line in the `LSpos` (or `AVpos`) notecard sends a link message with the number you choose.
 
 ```lua
--- Custom menu button. In the AVpos notecard:
+-- Custom menu button. In the LSpos (or AVpos) notecard:
 --     BUTTON Lights|500
 -- pressing "Lights" sends link message 500 with msg = "Lights" and id = the avatar key
 -- (or "controller|sitter" when someone controls another sitter's menu).

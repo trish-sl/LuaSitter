@@ -22,7 +22,7 @@
     - POSES is a Lua table keyed by pose name (edit it the same way).
     - FIX: with USES_PROPS the chains were sent twice per pose change.
     - FIX: the ring search also matched sitting avatars whose name contains
-      "ring" (avatars are part of the link set); avatars are now skipped.
+      "ring" (avatars are part of the link set); avatars are skipped.
 ]]
 
 --  SITTER:
@@ -105,13 +105,11 @@ local function ringKey(name: string): string?
 end
 
 local function goChain(new_links: {string})
-    -- unlink unused links
     for i = 1, #links, 2 do
         if not table.find(new_links, links[i]) then
             ll.Whisper(LOCKGUARD_CHANNEL, "lockguard " .. avatar .. " " .. links[i] .. " unlink")
         end
     end
-    -- link new links
     for i = 1, #new_links, 2 do
         local key = ringKey(new_links[i + 1] or "")
         if key then

@@ -24,6 +24,8 @@
   -----------------
   - Upstream PR #158 (adapted): choosing your own seat re-shows this menu
     instead of sending a pointless swap with yourself.
+  - The seat menu is paged ([<<] / [>>]) when it needs more than 12 buttons
+    (upstream: at most 12).
   - The "unsit everyone" loop after reading is bounded (no endless loop if
     an avatar cannot be unseated), and paced by a timer instead of llSleep.
 ]]
@@ -180,10 +182,10 @@ local function setAt<T>(t: { T }, i: number, v: T)
     end
 end
 
--- Menus that list one button per sitter (or avatar) are paged, so there is no
--- limit of 11 sitters. When everything fits in one dialog (12 buttons) the menu
--- is unchanged. Otherwise each page shows as many names as fit, padded with " ",
--- then the fixed buttons, then PAGE_PREV / PAGE_NEXT (pages wrap around).
+-- One page of the seat menu. When everything fits in one dialog (12 buttons)
+-- there is a single page. Otherwise each page shows as many names as fit,
+-- padded with " ", then the fixed buttons, then PAGE_PREV / PAGE_NEXT (pages
+-- wrap around).
 local PAGE_PREV, PAGE_NEXT = "[<<]", "[>>]"
 local function pageOf(items: {string}, fixed: {string}, page: number): ({string}, number)
     local out = {}
@@ -219,7 +221,6 @@ local function menu(av: string)
             end
         end
         local fixed = if lastPrimIsAgent() then { "[ADJUST]" } else {}
-        -- more than 12 buttons (seats): paged with [<<] / [>>]
         menu_buttons, menu_page[av] = pageOf(menu_buttons, fixed, menu_page[av] or 0)
         ll.ListenControl(menu_handle, true)
         ll.Dialog(K(av), "\n" .. product_and_version .. "\n" .. BUTTONS[sitter_index], orderButtons(menu_buttons), menu_channel)

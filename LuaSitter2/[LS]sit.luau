@@ -22,7 +22,7 @@
   * LSpos and AVpos notecards are read exactly as upstream (same commands, same quirks).
   * All public link messages are kept (90000-90500, see LuaSitter2/LINK_MESSAGES.md).
     Messages that only travelled between sitA and sitB (90299, 90302, sitA->sitB
-    90300/90301 while loading, sitB->sitA 90055) are now direct calls. 90055 is still
+    90300/90301 while loading, sitB->sitA 90055) are direct calls. 90055 is still
     broadcast for [LS]adjuster, and 90300/90301 are still accepted from [LS]adjuster.
 
   Changes vs upstream
@@ -36,20 +36,20 @@
     settings).
   * New link message 90032: like 90030 (swap), then gives the menu to the swapped sitters
     (upstream issue #140).
-  * DUMP no longer blocks the script with llSleep (upstream issue #109); the V: line also
-    carries KFM, LROT, DFLT, WARN, BRAND, ROLES and ONSIT (previously lost on re-dump), and
-    AMENU is dumped unmasked.
+  * DUMP is paced by a timer instead of blocking the script with llSleep (upstream issue
+    #109); the V: line also carries KFM, LROT, DFLT, WARN, BRAND, ROLES and ONSIT (upstream
+    lost them on re-dump), and AMENU is dumped unmasked.
   * RLV: the pose menu button that opens the RLV menu is labelled "RLV ▸" (upstream:
     "Control..."). It still sends "Control..." in 90100, so LSL [AV]root-RLV keeps working.
     The menu text explains it and [STOP].
   * Keyframed furniture (KFM): the pauses around moving a sitter are LLTimers instead of
     llSleep(0.4) / llSleep(0.2); a newer move cancels the steps of an older one.
-  * SEP is written as an escape, so copy/paste can no longer turn it into a space
+  * SEP is written as an escape, so copy/paste cannot turn it into a space
     (upstream issues #147 / #152).
   * For the optional [LS]commands plugin: 90017 (play the next/previous pose) and 90018
-    (move the pose by arrow key, 0.01 m or 1°; Shift+Left/Right turn). With the plugin present, the sitter's own
-    personal adjust menu has "Keys" instead of [SAVE ALL], and [SAVE] asks
-    [THIS POSE] / [ALL POSES].
+    (move the pose by arrow key, 0.01 m or 1°; Shift+Left/Right turn). With the plugin
+    present, the sitter's own personal adjust menu has "Keys" instead of [SAVE ALL], and
+    [SAVE] asks [THIS POSE] / [ALL POSES].
 ]]
 
 local product = "LuaSitter"
@@ -110,11 +110,31 @@ local function num(v: any): number
     return tonumber(string.match(s, "^%s*([-+]?%d*%.?%d+[eE][-+]?%d+)") or string.match(s, "^%s*([-+]?%d*%.?%d+)") or "") or 0
 end
 
+-- Reads a string the way LSL's (vector) cast does; nil when that gives no vector.
+-- tovector refuses text after the vector ("<1,2,3>// note") and a fourth number
+-- ("<0,0,0,1>"), which LSL's cast ignores; this reads them as AVsitter does.
+-- Only used when tovector gives nothing.
+local function toVec(s: string): vector?
+    local v = tovector(s)
+    if v ~= nil then
+        return v
+    end
+    local x, y, z = string.match(s, "^%s*<([^,>]*),([^,>]*),([^,>]*)")
+    if x == nil or y == nil or z == nil then
+        return nil
+    end
+    local nx, ny, nz = tonumber(x), tonumber(y), tonumber(z)
+    if nx == nil or ny == nil or nz == nil then
+        return nil
+    end
+    return vector(nx, ny, nz)
+end
+
 local function vec(s: any): vector
     if typeof(s) == "vector" then
         return s
     end
-    return tovector(tostring(s or "")) or ZERO_VECTOR
+    return toVec(tostring(s or "")) or ZERO_VECTOR
 end
 
 -- LSL (string)vector format, so LSL plugins and the adjuster see what they always saw
@@ -639,7 +659,8 @@ local function end_sitter()
     end
 end
 
--- sitB -> sitA "90055" anim info, now a direct call. Still broadcast for [LS]adjuster.
+-- Applies the selected pose (upstream: sitB -> sitA 90055, here a direct call).
+-- 90055 is still broadcast for [LS]adjuster.
 local function send_anim_info(broadcast: boolean)
     local pose = at(MENU_LIST, ANIM_INDEX)
     local data = at(DATA_LIST, ANIM_INDEX)
@@ -966,7 +987,7 @@ end
 --------------------------------------------------------------------------------
 -- notecard
 --------------------------------------------------------------------------------
--- Parse one AVpos line. `own` = true when reading this sitter's own "LSpos sitter N" card.
+-- Parse one pose notecard line. `own` = true when reading this sitter's own "LSpos sitter N" card.
 local function parseLine(data: string, own: boolean)
     local diamond = ll.SubStringIndex(data, "◆")
     if diamond then
@@ -1071,8 +1092,8 @@ local function parseLine(data: string, own: boolean)
         return
     end
     if command == "ANIM" then
-        -- expressions for this sitter ([LS]faces-camera ignores the main AVpos section
-        -- of a sitter that has its own "LSpos sitter N" card, so do the same here)
+        -- expressions for this sitter ([LS]faces-camera ignores the main notecard's
+        -- section of a sitter that has its own "LSpos sitter N" card, so do the same here)
         if own or sitter_notecard == "" then
             has_faces = true
         end
@@ -1319,7 +1340,7 @@ local function onAdjustListen(id: string, msg: string)
         ll.RegionSayTo(K(id), 0, "Personal position saved for all poses.")
     elseif msg == "[SAVE]" then
         if keys_menu() then
-            -- [SAVE ALL] gave its place to "Keys": ask which
+            -- "Keys" replaces [SAVE ALL] in this menu: ask which
             adj_dialog("Save your personal position for:", { "[BACK]", "[THIS POSE]", "[ALL POSES]" })
         else
             save_this_pose(id)
@@ -1597,7 +1618,7 @@ local function onLinkMessage(sender: number, n: number, msg: string, id: string)
     elseif n == 90201 then
         has_RLV = 0
         return
-    elseif n == 90203 then -- texture script present (unused)
+    elseif n == 90203 then -- a texture plugin is present (sent by third-party plugins; adds [TEXTURE])
         has_texture = true
         return
     elseif n == 90298 then -- show sit targets (/5 targets)

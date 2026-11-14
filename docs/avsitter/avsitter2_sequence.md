@@ -2,7 +2,7 @@
 
 > **LuaSitter note:** This page is from the [AVsitter documentation](https://avsitter.github.io) (CC BY-SA 4.0, see [LICENSE](../LICENSE.md)), adapted for LuaSitter. Everything here applies to LuaSitter2: the AVpos notecard format and the link messages are unchanged. LuaSitter also reads the notecard under its new name, `LSpos` (preferred for new furniture). Script names differ: `[AV]name` is `[LS]name` in LuaSitter, and `[AV]sitA` + `[AV]sitB` are one script, `[LS]sit`. See [Migrating from AVsitter](../luasitter/migrating-from-avsitter.md) and the [LuaSitter notes](#luasitter-notes) at the end of this page.
 
-The [AV]sequence script allows for sequencing of poses, sounds and chat text to create a "scene". Each sequence is composed of any number of steps. If the sequence has multiple animations then a menu is given to control the sequence. You can also have sequences  that simply play a sound or some chat, whenever a pose is played.
+The [AV]sequence script allows for sequencing of poses, sounds and chat text to create a "scene". Each sequence is composed of any number of steps. If the sequence has multiple animations then a menu is given to control the sequence. You can also have sequences that simply play a sound or some chat, whenever a pose is played.
 
 > **Important:** The [AV]sequence script is specifically made for couples or single-sitter setups. It is not suitable for controlling multiple solo sequences playing at the same time within the same setup prim or for playing sequences across separate prims. See the ['built-in' sequencing method](avsitter2_avpos.md#built-in-animation-sequence) for another option. For Yoga / Tai-Chi / Line Dancing see [here](https://avsitter.com/qa/815) instead.
 
@@ -287,4 +287,4 @@ SYNC Couples3|couples3_M
 ## LuaSitter notes
 
 - Sequences are part of `[LS]plugins` in LuaSitter (together with props and favourites). It reads `[LS]sequence_settings` if present, otherwise `[AV]sequence_settings`, so existing notecards work without renaming.
-- Without a sequence notecard, the sequence feature is inactive and costs nothing.
+- Without a sequence notecard, the sequence feature is inactive and costs almost nothing.

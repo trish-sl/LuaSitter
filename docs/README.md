@@ -5,6 +5,9 @@
 - [What's new in LuaSitter](luasitter/whats-new.md): everything that differs from AVsitter.
 - [Migrating from AVsitter](luasitter/migrating-from-avsitter.md): which script replaces which.
 - [Chat commands and arrow keys](luasitter/commands.md): the `[LS]commands` plugin (gestures, moving your pose with the keys).
+- [Chains](luasitter/chains.md): the `[LS]chains` plugin (LockGuard and LockMeister chains set up by notecard, with on/off).
+- [Options](luasitter/options.md): the `[LS]options` plugin (lamps, sheet colours, music: textures, colours, light, glow and sounds per pose or button).
+- [Troubleshooting: notecard check](luasitter/troubleshooting.md): what the problems listed by the `LS-setup-checker` NOTECARD check mean and how to fix them.
 - [Writing plugins in Lua](luasitter/lua-plugins.md): SLua plugin examples.
 - [Release notes](RELEASE_NOTES.md)
 - [LuaSitter2 scripts](../LuaSitter2/README.md): what each script does and where it goes.

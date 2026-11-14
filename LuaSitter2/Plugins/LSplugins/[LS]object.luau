@@ -23,12 +23,12 @@
   start parameter; then enterPropState() acts as "state prop" (and as the
   "restart_prop" round trip), clearing listens and timers like a state change.
 
-  Behaviour changes:
+  Changes from upstream:
     - PR #32 / issue #17: when waiting for the sitter's attach permission, the
       prop gives up after 120 s, says DEREZ and dies if it is not attached.
-      Implemented as a separate LLTimers one-shot, so (unlike the LSL PR) the
-      10 s "rezzer gone" watchdog keeps running after the prop is attached.
-    - The "rezzer gone" watchdog now also says DEREZ before dying (PR #32).
+      This is a separate LLTimers one-shot, so (unlike the LSL PR) the 10 s
+      "rezzer gone" watchdog keeps running after the prop is attached.
+    - The "rezzer gone" watchdog also says DEREZ before dying (PR #32).
     - "Is there a sit script" accepts "[LS]sit" or the LSL "[AV]sitA".
     - Removing a prop that avatars sit on waits 1 s after unseating them on a
       timer (upstream: llSleep(1)) before it says DEREZ and dies.

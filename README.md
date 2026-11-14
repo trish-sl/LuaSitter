@@ -11,7 +11,7 @@ The goal of LuaSitter is to **reduce script time and load on the simulator** whi
 - **Lua instead of LSL.** SLua scripts run on the Luau VM, which is faster and uses memory more efficiently than LSL/Mono.
 - **Fewer scripts.** LSL scripts are limited to 64 KB of memory, which forced AVsitter to split features across several scripts that talk to each other through link messages. SLua scripts have more memory, so LuaSitter merges those scripts wherever that's possible. For example, AVsitter2's `[AV]sitA` + `[AV]sitB` pair (two scripts per sitter) is now a single `[LS]sit` per sitter, which halves the core script count. Props, sequences and favourites are one `[LS]plugins` script, and faces and cameras are one `[LS]faces-camera` script. A 2-sitter bed with all of those uses 5 scripts instead of AVsitter2's 10. Fewer scripts means less scheduler overhead, fewer link messages, and less memory per object.
 - **Faster loading.** Notecards are read with `ll.GetNotecardLineSync`, which returns cached lines instantly instead of waiting one dataserver event per line. This can make a furniture reset on sim reload near instant instead of taking seconds to minutes.
-- **No busy waiting.** No script calls `ll.Sleep`: every upstream `llSleep` (menus, dumps, animation changes, sequences, RLV, props) became an `LLTimers` timer with the same duration and the same order of events.
+- **No busy waiting.** No script calls `ll.Sleep`. The waits that froze AVsitter scripts (menus, DUMP, animation changes, sequences, RLV, props) use timers with the same durations, so scripts stay responsive.
 
 ## Compatibility
 
@@ -24,8 +24,8 @@ The goal of LuaSitter is to **reduce script time and load on the simulator** whi
 | Folder | Contents |
 | --- | --- |
 | [LuaSitter2/](LuaSitter2/) | SLua port of AVsitter2 (current system). Start with [LuaSitter2/README.md](LuaSitter2/README.md), which explains what each script does and how scripts were merged. |
-| [LuaSitter1/](LuaSitter1/) | SLua port of the legacy AVsitter1 system, see [LuaSitter1/README.md](LuaSitter1/README.md). |
-| [AVsitter2/](AVsitter2/), [AVsitter1/](AVsitter1/) | The original AVsitter LSL sources, kept unchanged as a reference for the port. |
+| [LuaSitter1/](LuaSitter1/) | SLua port of the legacy AVsitter1 system, only for compatibility with old AVsitter1 furniture. See [LuaSitter1/README.md](LuaSitter1/README.md). |
+| [Archive (Original AVSitter Source)/](<Archive (Original AVSitter Source)/>) | The original AVsitter LSL sources, kept unchanged as a reference for the port. |
 | [docs/](docs/) | Documentation: the AVsitter user guide, LuaSitter additions, and release notes. |
 
 ## Getting started
@@ -37,6 +37,7 @@ The goal of LuaSitter is to **reduce script time and load on the simulator** whi
 The full user guide, including the AVsitter documentation (the notecard format is unchanged) with LuaSitter notes, the migration guide and the release notes, is in [docs/](docs/README.md).
 
 ## Developing
+
 Upstream fixes and open pull requests that were folded into LuaSitter are listed in [LuaSitter2/README.md](LuaSitter2/README.md#upstream-fixes-included).
 
 Automated tests for LuaSitter1 and LuaSitter2 run offline with [rezless](https://github.com/i-doll/rezless): `node test/run-tests.mjs` (needs Node.js 22.12 or newer). See [test/README.md](test/README.md). They help catch mistakes, but don't replace testing in-world.

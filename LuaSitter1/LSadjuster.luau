@@ -478,7 +478,7 @@ LLEvents:on("listen", function(chan: number, _name: string, uid: uuid, message: 
                 ll.Say(0, "Added SYNC '" .. string.sub(message, 3) .. "' using anms '" .. chosen_animation .. "' and '" .. chosen_animation2 .. "'")
                 dont_move = true
             end
-            -- FIX: an empty name no longer opens the menu twice
+            -- FIX: upstream opened the menu twice for an empty name
             if message ~= "" and (adding == "[POSE]2" or adding == "[SYNC]3") then
                 ll.MessageLinked(LINK_SET, 90005, "", id)
                 resetPosRot()

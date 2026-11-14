@@ -20,8 +20,8 @@
   Changes from the LSL
   --------------------
     - POSES is a Lua table keyed by pose name (edit it the same way).
-    - Also clears the chains on 90032 (swap sitters and return the menu,
-      issue #140), like on 90030.
+    - FIX: the chains were not cleared on 90032 (swap sitters and return the
+      menu, issue #140), only on 90030.
 ]]
 
 --  SITTER:
@@ -100,8 +100,8 @@ local function closeListen()
     end
 end
 
--- llSetTimerEvent(TIMEOUT): close the listener when nothing answers anymore.
--- Good coders don't leave unused listeners running. The lm channel can be pretty busy.
+-- llSetTimerEvent(TIMEOUT): close the listener when nothing answers any more
+-- (the LockMeister channel can be busy).
 local function extendTimeout()
     if timer then
         LLTimers:off(timer)
@@ -137,33 +137,31 @@ LLEvents:on("link_message", function(sender: number, num: number, msg: string, i
     end
 
     if num == 90030 or num == 90032 then
-        -- If sitting positions have been swapped and it involves
-        -- SITTER and our user, we clear all drawn chains.
+        -- FIX: also on 90032. A swap that involves SITTER clears all drawn chains.
         if SITTER == int(msg) or SITTER == int(id) then
             if isKey(avatar) then
                 ClearChains()
             end
         end
     elseif num == 90065 then
-        -- If OUR user stood up, we clear all drawn chains.
+        -- our user stood up: clear all drawn chains
         if id ~= avatar then
             return
         end
         ClearChains()
     elseif num == 90045 then
-        -- If a new animation is being played, we have to clear existing chains (if needed),
-        -- and draw new ones if the animation is registered in POSES.
-        if SITTER ~= int(msg) then -- payload:0 -> which sitter is this for.
+        -- a pose was played: clear the old chains, draw new ones if the pose is in POSES
+        if SITTER ~= int(msg) then -- msg: sitter|pose|...
             return
         end
-        local pose = ll.ParseString2List(msg, {"|"}, {})[2] or "" -- payload:1 -> the pose being played.
+        local pose = ll.ParseString2List(msg, {"|"}, {})[2] or ""
 
         if isKey(avatar) then
             ClearChains()
         end
         avatar = id
 
-        -- If we haven't found a named pose, try to find the wildcard (*) pose.
+        -- no entry for this pose: use the wildcard (*) pose
         local chains = POSES[pose] or POSES["*"]
         if not chains then
             return
@@ -178,7 +176,7 @@ LLEvents:on("link_message", function(sender: number, num: number, msg: string, i
         for i = 1, #data, 2 do
             local lm_target = data[i]
             local prim_name = data[i + 1] or ""
-            -- lookup the prim linknumber of this anchor point (highest link number first).
+            -- link number of the first prim whose name contains prim_name (highest link number first)
             local j = ll.GetObjectPrimCount(ll.GetKey())
             while j > 0 do
                 local link_id = j
@@ -186,7 +184,7 @@ LLEvents:on("link_message", function(sender: number, num: number, msg: string, i
                 if string.find(ll.GetLinkName(link_id), prim_name, 1, true) then
                     table.insert(emitters, { link = link_id, lmcode = lm_target, state = 0 })
                     ll.RegionSayTo(K(avatar), lm_channel, avatar .. lm_target)
-                    break -- we got what we wanted, bail.
+                    break
                 end
             end
         end
@@ -208,7 +206,7 @@ LLEvents:on("listen", function(_channel: number, _name: string, id: uuid, msg: s
         -- LMV1 Message structure:
         -- Request -> AVATAR_UUIDlmcode
         -- Reply   -> AVATAR_UUIDlmcode ok
-        local lm_target = ll.GetSubString(msg, 37, -4) -- strip the 'ok' and the 'target key'.
+        local lm_target = ll.GetSubString(msg, 37, -4) -- strip the target key and " ok"
         local e = findEmitter(lm_target)
         if not e then -- No emitter configured for this lm code.
             return
@@ -246,8 +244,7 @@ LLEvents:on("listen", function(_channel: number, _name: string, id: uuid, msg: s
         SetChain(K(target_id), e.link) -- Update the chain.
         e.state = 2 -- lmv2 ok
 
-        -- This is not entirely necessary but it allows us to close
-        -- the listener as soon as all anchors are LMV2 satisfied.
+        -- close the listener as soon as every anchor has an LMV2 target
         emitter_v2_count += 1
         if emitter_v2_count >= #emitters then
             closeListen()

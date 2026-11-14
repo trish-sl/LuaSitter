@@ -1,7 +1,8 @@
 // LuaSitter2: more of [LS]root-security: GROUP access, the [BACK] button and
 // how the security menu closes, touches handed to [LS]root-control /
-// [LS]root-RLV, relayed touches (90006), [LS]commands checks (90013), and the
-// "is RLV present" answer (90201 / 90202).
+// [LS]root-RLV, relayed touches (90006), [LS]commands checks (90013), the
+// "is RLV present" answer (90201 / 90202), [BACK] only with a sitter, numbers
+// read as LSL reads them (hex), other 90100 buttons, unknown Menu answers.
 import { describe, it, expect } from 'vitest'
 import { buildFurniture, LS2_SCRIPTS, OWNER } from '../helpers/furniture.js'
 import type { Avatar, Furniture } from '../helpers/furniture.js'
@@ -219,5 +220,64 @@ describe('LuaSitter2 [LS]root-security: touches and checks', () => {
     f.sendLinked('[LS]root-security', 90013, 'prev', alice.key)
     expect(f.linked().some((m) => m.num === 90016 && m.str === 'prev')).toBe(false)
     expect(f.dialogsFor(alice)).toHaveLength(2)
+  })
+})
+
+describe('LuaSitter2 [LS]root-security: what the messages carry', () => {
+  it('the menu has [BACK] only when it was opened for a sitter', async () => {
+    const f = await securityOnly()
+    f.sendLinked('[LS]root-security', 90100, '0|[SECURITY]', OWNER) // no sitter key
+    expect(f.lastDialog(owner).buttons.filter((b) => b !== ' ').sort()).toEqual(['Menu', 'Sit'])
+    f.sendLinked('[LS]root-security', 90100, '0|[SECURITY]|00000000-0000-0000-0000-000000000000', OWNER)
+    expect(f.lastDialog(owner).buttons).not.toContain('[BACK]')
+    f.sendLinked('[LS]root-security', 90100, '0|[SECURITY]|' + OWNER, OWNER)
+    expect(f.lastDialog(owner).buttons).toContain('[BACK]')
+  })
+
+  it('[BACK] gives the adjust channel back as a number, read as LSL reads it (hex too)', async () => {
+    const f = await securityOnly()
+    const alice = f.avatar('Alice')
+    f.sendLinked('[LS]root-security', 90100, '0x1F|[SECURITY]|' + alice.key, OWNER)
+    f.click(owner, '[BACK]')
+    expect(f.linked()).toContainEqual({ num: 90101, str: `31|[ADJUST]|${OWNER}`, id: alice.key })
+    f.sendLinked('[LS]root-security', 90100, '-0x10|[SECURITY]|' + alice.key, OWNER)
+    f.click(owner, '[BACK]')
+    expect(f.linked()).toContainEqual({ num: 90101, str: `-16|[ADJUST]|${OWNER}`, id: alice.key })
+    f.sendLinked('[LS]root-security', 90100, '12abc|[SECURITY]|' + alice.key, OWNER)
+    f.click(owner, '[BACK]')
+    expect(f.linked()).toContainEqual({ num: 90101, str: `12|[ADJUST]|${OWNER}`, id: alice.key })
+  })
+
+  it('other adjust buttons (90100) are left to the other scripts', async () => {
+    const f = await securityOnly()
+    const before = f.dialogsFor(owner).length
+    f.sendLinked('[LS]root-security', 90100, '0|[HELPER]|' + OWNER, OWNER)
+    f.sendLinked('[LS]root-security', 90100, '0|[SECURITY]|' + OWNER, f.avatar('Alice').key)
+    expect(f.dialogsFor(owner)).toHaveLength(before)
+    // only the non-owner's [SECURITY] was answered (with the adjust menu back)
+    expect(f.linked().filter((m) => m.num === 90101)).toHaveLength(1)
+  })
+
+  it('a relayed touch (90006) without a number opens the main menu (0)', async () => {
+    const f = await securityOnly()
+    const alice = f.avatar('Alice')
+    f.sendLinked('[LS]root-security', 90006, '', alice.key)
+    f.sendLinked('[LS]root-security', 90006, 'menu', alice.key)
+    expect(f.linked().filter((m) => m.num === 90005)).toEqual([
+      { num: 90005, str: '0', id: alice.key },
+      { num: 90005, str: '0', id: alice.key },
+    ])
+  })
+
+  it('an unknown answer in the Menu list keeps Menu access', async () => {
+    const f = await furniture()
+    openSecurity(f)
+    f.click(owner, 'Menu')
+    f.click(owner, 'OWNER')
+    expect(f.lastDialog(owner).message).toContain('Menu access: OWNER')
+    f.click(owner, 'Menu')
+    ownerSays(f, 'NOBODY')
+    expect(f.lastDialog(owner).message).toContain('Sit access: ALL\nMenu access: OWNER')
+    expect(securityListens(f)).toHaveLength(1) // still listening: the main menu is shown again
   })
 })

@@ -9,8 +9,9 @@
 ]]
 
 --[[
-  Placed in prop objects (used with [LS]LockGuard and USES_PROPS = true), this
-  script sends the uuid of any LockGuard rings to the script in the furniture.
+  Placed in prop objects (used with [LS]LockGuard and USES_PROPS = true, or
+  [LS]chains with PROPS 1), this script sends the uuid of any LockGuard rings
+  to the script in the furniture.
   Ring prims in the prop should be named with "ring" in their prim name,
   e.g. "ring1", "ring2".
 

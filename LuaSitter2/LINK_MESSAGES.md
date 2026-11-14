@@ -8,7 +8,7 @@ Differences from AVsitter2:
 - In SLua the 4th link message parameter is a string, not a key. LSL scripts still receive it as a key.
 - Messages that only travelled between `[AV]sitA` and `[AV]sitB` are no longer sent: **90299**, **90302**, and the 90300/90301 that sitA sent to sitB while reading the notecard. `[LS]sit` still accepts **90300**/**90301** from `[LS]adjuster`, and still broadcasts **90055**.
 - Messages that only travelled between `[AV]root-RLV` and `[AV]root-RLV-extra` became function calls inside `[LS]root-RLV` (see that script's header for details). **90208**/**90209** are no longer sent, but `[LS]root-RLV` still answers them.
-- New: **90032** (swap and return the menu), and for the `[LS]commands` plugin **90013**, **90016**, **90017**, **90018**. `[LS]root-RLV` now answers the DUMP chain (90020/90021/90022).
+- New: **90032** (swap and return the menu), for the `[LS]commands` plugin **90013**, **90016**, **90017**, **90018**; for the `[LS]chains` plugin **90240**, **90241**, **90242**; and for the `[LS]options` plugin **90250**. `[LS]root-RLV` also answers the DUMP chain (90020/90021/90022).
 - `[AV]prop`, `[AV]sequence` and `[AV]favs` are one script, `[LS]plugins`; `[AV]faces` and `[AV]camera` are `[LS]faces-camera`. In the DUMP chain (90020) the script ids are `[LS]plugins`, `[LS]faces-camera` (one request per sitter, answered by the copy responsible for that sitter) and `[LS]root-RLV`.
 
 This list is not intended for the casual user. Public API info for general users can be found [here](https://avsitter.github.io/avsitter2.html) (it applies to LuaSitter2 too, with `[LS]` script names).
@@ -18,9 +18,9 @@ This page may provide additional info if the purpose of a link message is not in
 **LuaSitter2 uses link messages in the range 90000-90500.**
 
 ### 90000
-Play an animation defined in AVpos notecard.
+Play a pose defined in the pose notecard (`LSpos` or `AVpos`).
 
-    lMessageLinked(LINK_THIS,90000,<POSE_NAME>,<CUSTOM>);
+    llMessageLinked(LINK_THIS,90000,<POSE_NAME>,<CUSTOM>);
     
     Where for <CUSTOM>:
         ""      = try to play the pose for all SITTERS.
@@ -38,7 +38,7 @@ Stop an additional animation ([LS]adjuster, [LS]faces-camera).
     llMessageLinked(LINK_THIS,90002,<ANIMATION_FILE>,<AVATAR_UUID>);
 
 ### 90003
-Same as 90000 but ignored by the sequence module of [LS]plugins to prevent from stopping sequences when the sequence module itself plays poses.
+Same as 90000 but ignored by the sequence module of [LS]plugins, so that a running sequence is not stopped when the sequence module itself plays poses.
 
 ### 90004
 Same as 90005 but returns to top level of the menu (used by [LS]root-RLV when pressing [MENU]).
@@ -57,7 +57,7 @@ Note: [LS]menu only accepts the first form below; it does not accept TOMENU or C
 Register touch or sit to [LS]root-security script from [LS]sit after permissions granted.
 
     llMessageLinked(LINK_SET,90006,"",<AVATAR_UUID>);
-    llMessageLinked(LINK_SET,90006,<FUNCTION>,<AVATAR_UUID>); // for AVselect!
+    llMessageLinked(LINK_SET,90006,<FUNCTION>,<AVATAR_UUID>); // for [LS]select
     
     FUNCTION=-1 ensures when sitters first sit they will get [LS]select menu if the [LS]select script is present
 
@@ -126,7 +126,7 @@ Tells [LS]adjuster to ask the next script to [DUMP] settings.
     llMessageLinked(LINK_THIS,90021,<SITTER#>,<SCRIPT_NAME>);
 
 ### 90022
-Tell [LS]adjuster a read out settings [DUMP] line.
+Sends one [DUMP] settings line to [LS]adjuster.
 
     llMessageLinked(LINK_THIS,90022,<TEXT>,<SITTER#>);
 
@@ -262,7 +262,7 @@ Menu choice. Sent and received by several scripts.
 [LS]adjuster add CAMERA line to [LS]faces-camera.
 
 ### 90200
-Default integer for a BUTTON line in the AVpos notecard. Used to rez props. If UUID is specified, menu is returned to that avatar. A second UUID can be specified to rez the prop for one avatar, but return the menu to another.
+Default integer for a BUTTON line in the pose notecard. Used to rez props. If UUID is specified, menu is returned to that avatar. A second UUID can be specified to rez the prop for one avatar, but return the menu to another.
 
 ### 90220
 Same as 90200 but no menu is returned. 
@@ -273,11 +273,11 @@ Same as 90200 but no menu is returned.
 ### 90202
 Reply that script exists in root: [LS]root-security (and [LS]root-RLV).
 
-### 90203 (not used)
-Reply that script exists in root: [LS]texture.
+### 90203
+Reply that a texture plugin exists (originally [AV]texture, not part of LuaSitter). [LS]sit then shows a [TEXTURE] button in the pose menu. No LuaSitter script sends it; third-party plugins can.
 
-### 90204 (not used)
-Reply that script exists in root: [LS]color.
+### 90204
+Reply that a color plugin exists (originally [AV]color, not part of LuaSitter). No LuaSitter script sends or reads it; reserved for third-party plugins.
 
 ### 90205
 Toggle sound in [LS]plugins (sequences).
@@ -295,7 +295,7 @@ Open the "Un/Dress" menu of [LS]root-RLV (upstream: [AV]root-RLV to [AV]root-RLV
 Open the "Restrict" menu of [LS]root-RLV (upstream: [AV]root-RLV to [AV]root-RLV-extra). No longer sent by LuaSitter, still answered.
 
 ### 90210
-Default integer for a SEQUENCE line in the AVpos notecard. Used by [LS]plugins (sequences).
+Default integer for a SEQUENCE line in the pose notecard. Used by [LS]plugins (sequences).
 
 ### 90211
 [LS]root-control sends [CAPTURE] message to [LS]root-RLV.
@@ -306,6 +306,29 @@ Default integer for a SEQUENCE line in the AVpos notecard. Used by [LS]plugins (
 Control [LS]faces-camera cameras with BUTTON or link message.
 
     llMessageLinked(LINK_THIS,90230,<CAMERA_NAME>,<AVATAR_UUID>);
+
+### 90231
+Same as 90230 but no menu is returned.
+
+### 90240
+New in LuaSitter. Tells `[LS]chains` to switch chains on, and chain the current pose at once. Accepted from any prim. `<ID>` is a sitter's key, or `<CONTROLLER_UUID>|<SITTER_UUID>` (as BUTTON sends it); any other value (e.g. `""`) applies to every sitter. Chains are on for everyone by default, and again after a sitter stands up.
+
+    llMessageLinked(LINK_SET,90240,"",<ID>);
+
+### 90241
+New in LuaSitter. Tells `[LS]chains` to switch chains off (removed at once; the pose is still followed). `<ID>` as for [90240](#90240).
+
+    llMessageLinked(LINK_SET,90241,"",<ID>);
+
+### 90242
+New in LuaSitter. Tells `[LS]chains` to toggle chains on/off. `<ID>` as for [90240](#90240); for every sitter, it switches all off if any is on, else all on. Example menu button: `BUTTON Chains|90242`.
+
+    llMessageLinked(LINK_SET,90242,"",<ID>);
+
+### 90250
+New in LuaSitter. Applies an option of `[LS]options` (textures, colours, lights, glow, alpha, sounds; see [Options](../docs/luasitter/options.md)). The message is the name of an OPTION, or of a TOGGLE (then its next option is applied). The key is ignored. From the pose menu: `BUTTON Lamp|90250` (the button name is the message) or `BUTTON Night light|90250|Night`.
+
+    llMessageLinked(LINK_SET,90250,<OPTION_OR_TOGGLE_NAME>,"");
 
 ### 90298
 [LS]adjuster tells [LS]sit to show SitTargets (/5 targets).

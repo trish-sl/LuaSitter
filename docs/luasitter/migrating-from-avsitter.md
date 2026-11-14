@@ -1,6 +1,6 @@
 # Migrating from AVsitter
 
-LuaSitter uses the same AVpos notecards and the same link messages as AVsitter, so moving a piece of furniture over is mostly a matter of swapping scripts.
+LuaSitter uses the same `AVpos` notecards and the same link messages as AVsitter, so moving a piece of furniture over is mostly a matter of swapping scripts.
 
 ## Steps
 
@@ -13,10 +13,10 @@ LuaSitter uses the same AVpos notecards and the same link messages as AVsitter, 
 
 ## Migrating many objects with the updater
 
-`LS-update-sender` has a **Migrate** mode that does steps 2 and 3 for every piece of furniture around it. It needs an update receiver (`update receiver (auto removing)`) in each prim that holds AVsitter scripts. AVsitter furniture often has the LSL one already; otherwise drop the LuaSitter one in.
+`LS-update-sender` has a **Migrate** mode that does steps 2 and 3 for every piece of furniture around it. It needs an update receiver (`update receiver (auto removing)`) in each prim that holds AVsitter scripts. AVsitter furniture often has the LSL one already; otherwise drop in the LuaSitter one (`LS-update-receiver`, which must be named `update receiver (auto removing)` in inventory).
 
 1. Put in a sender prim: `LS-update-sender`, the LuaSitter `update receiver (auto removing)`, and every LuaSitter script the furniture needs, with its copies (`[LS]sit`, `[LS]sit 1`, ..., `[LS]faces-camera 1`, ...). These scripts must not be running.
-2. Take a copy of the furniture and rez it near the sender: within 100 m by default. Touch the sender and choose **Migrate**. **Range** in the same menu sets how far the sender looks: 10 m, 20 m, Shout 100 m, Region, or Prim size (half the sender's X size, as upstream). Only furniture you own answers.
+2. Take a copy of the furniture and rez it near the sender: within 100 m by default. Touch the sender and choose **Migrate**. **Range** in the same menu sets how far the sender looks: 10 m, 20 m, Shout 100 m, Region, or Prim size (half the sender's X size, as in AVsitter). Only furniture you own answers.
 3. The sender puts its LuaSitter receiver in prims that have another one (an LSL receiver cannot delete scripts), then says the plan in chat for each prim: the scripts it removes, adds and keeps, and any script the sender lacks (that prim is then skipped). Nothing else is changed yet.
 4. Choose **APPLY**. For each prim, the sender loads the LuaSitter scripts (not running); then the receiver deletes the AVsitter scripts and starts the new ones, but only if every new script arrived. If one is missing, nothing is deleted in that prim.
 
@@ -68,6 +68,6 @@ LSL scripts that use AVsitter link messages keep working: the messages and their
 
 ## What behaves differently
 
-- **DUMP** prints to chat only; there is no "Settings copy" web link. It is faster, and it now includes settings that AVsitter dropped (KFM, LROT, DFLT, WARN, BRAND, ROLES, ONSIT, RLV lines).
+- **DUMP** prints to chat only; there is no "Settings copy" web link. It is faster, and it includes settings that AVsitter dropped (KFM, LROT, DFLT, WARN, BRAND, ROLES, ONSIT, RLV lines).
 - **Loading** is much faster when the simulator has the notecard cached.
 - See [What's new in LuaSitter](whats-new.md) for every change.

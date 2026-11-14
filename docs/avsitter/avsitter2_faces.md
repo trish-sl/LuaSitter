@@ -54,7 +54,7 @@ Usually a sequence will loop, but if a dash ( - ) is entered instead of a durati
 
     ANIM Happy|express_laugh_emote|5|express_smile|-
 
-If you want to continually re-apply an expression every second, then begin it's duration with a dash ( - ). e.g:
+If you want to continually re-apply an expression every second, then begin its duration with a dash ( - ). e.g:
 
     ANIM Happy|express_laugh_emote|-5|express_smile|-3
 
@@ -86,6 +86,6 @@ If you want to re-use an ANIM line that is already defined for the same sitter, 
 
 ## LuaSitter notes
 
-- Facial expressions and cameras are one script in LuaSitter: `[LS]faces-camera`. For faces only, a single `[LS]faces-camera` serves all sitters, like `[AV]faces` did. If you add copies for cameras (`[LS]faces-camera 1`, ...), each copy handles the faces of its own sitter.
+- Facial expressions and cameras are one script in LuaSitter: `[LS]faces-camera`. For faces only, a single `[LS]faces-camera` serves all sitters, like `[AV]faces`. If you add copies for cameras (`[LS]faces-camera 1`, ...), each copy handles the faces of its own sitter. `[LS]faces-camera` (without a number) must always be present.
 - The `[FACES]` button in the [ADJUST] menu only appears for sitters that have ANIM lines.
 - ANIM lines are also read from per-sitter `LSpos sitter N` notecards.

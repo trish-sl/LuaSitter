@@ -24,15 +24,15 @@
   Behaviour changes
   -----------------
   - Notecard read with the fast reader (GetNotecardLineSync, async fallback).
-  - The [DUMP] readout is paced by a timer (0.2 s per line, as before) instead
-    of blocking llSleep calls; the hand-off to the next sitter (90020) is sent
-    after the last line, exactly as before.
+  - The [DUMP] readout is paced by a timer (0.2 s per line, as upstream)
+    instead of blocking llSleep calls; the hand-off to the next sitter (90020)
+    is sent after the last line, as upstream.
   - The staggered "items Ready" message uses a timer instead of llSleep.
   - Changing pose stops the previous animation 0.5 s after starting the new
     one with a timer (upstream: llSleep(0.5), which froze the script), and a
     new sitter's permission request waits 0.1 s on a timer instead of llSleep.
   - Saved personal adjustments (CUSTOMS) were capped from llGetFreeMemory();
-    the cap is now clamped to 10..1000 entries (SLua has much more memory).
+    the cap is clamped to 10..1000 entries (SLua has much more memory).
 ]]
 
 local product_and_version = "LuaSitter 3.0-lua1"
@@ -1080,7 +1080,7 @@ local function onDone(_total: number)
         Owner_Say(#MENU .. " items Ready, Memory: " .. ll.GetFreeMemory())
     end
     if script_channel > 0 then
-        LLTimers:once(script_channel, ready) -- staggered like the old llSleep(script_channel)
+        LLTimers:once(script_channel, ready) -- staggered like upstream's llSleep(script_channel)
     else
         ready()
     end

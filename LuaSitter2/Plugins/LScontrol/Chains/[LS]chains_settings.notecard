@@ -1,0 +1,49 @@
+#############################################################
+# Example notecard for the LuaSitter [LS]chains plugin.
+#############################################################
+//
+// Put this notecard, named "[LS]chains_settings", and the [LS]chains script
+// in the prim with the [LS]sit scripts. Name the prims the chains go to
+// (for example "ring1", "ring2"...). Full guide: docs/luasitter/chains.md
+//
+// Lines starting with # or // are comments, and so is anything after //.
+//
+// STYLE lockguard|<LockGuard parameters>
+//     Chains for LockGuard V2 cuffs. Parameters: size x y, life seconds,
+//     gravity g, color r g b, texture uuid (left out: the cuff's own look).
+// STYLE lockmeister|<particle settings>
+//     Chains for LockMeister cuffs, drawn from the ring prim:
+//     size x y, life seconds, gravity g, color r g b, texture uuid.
+// The first STYLE line also chooses the protocol of the CHAIN lines
+// (LockGuard when there is no STYLE line).
+//
+// CHAIN pose|sitter|cuff,ring,cuff,ring...
+//     pose: the menu name of a POSE or SYNC, or * for any pose.
+//     sitter: 0, 1... or * for any sitter.
+//     Then cuff and ring prim pairs. An empty list (or none) means no chains.
+//     Add |lockmeister or |lockguard at the end to use the other protocol.
+//     The most precise line wins: pose|sitter, pose|*, *|sitter, *|*.
+//
+// TOGGLE on|off            extra link numbers that switch the chains on / off
+// TOGGLE on|off|toggle     (90240 on, 90241 off, 90242 toggle always work), so
+//                          menu buttons of older products keep working.
+// PROPS 1                  LockGuard rings may be in props ([LS]LockGuard-object).
+//
+// Menu buttons (in LSpos / AVpos):
+//     BUTTON Chains|90242
+//
+#############################################################
+
+STYLE lockguard|size 0.08 0.08 life 0.6 gravity 0.6 texture d7277e78-06f4-58ae-9f7c-7499e50de18a
+
+// Wrists to the wall rings in "Kneel", for any sitter
+CHAIN Kneel|*|leftwrist,ring1,rightwrist,ring2
+
+// No chains in "Rest"
+CHAIN Rest|*|none
+
+// Every other pose of sitter 0: the ankles
+CHAIN *|0|leftankle,ring3,rightankle,ring4
+
+// Old products used link messages 98 (on) and 99 (off)
+TOGGLE 98|99

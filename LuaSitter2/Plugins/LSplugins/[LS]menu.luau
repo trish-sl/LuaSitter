@@ -16,19 +16,18 @@
     [LS]plugins present, the owner gets an [OWNER] menu to add props ([NEW] -> 90173),
     save their positions ([SAVE] -> 90101), clear, dump and reset.
 
-  Replaces: [AV]menu. It is intentionally NOT merged into [LS]plugins:
-    - [LS]menu is also deployed alone (pure button menu, no [LS]plugins): the [OWNER]
+  Replaces [AV]menu. It is not merged into [LS]plugins because:
+    - [LS]menu can be used alone (pure button menu, no [LS]plugins): the [OWNER]
       button and prop options appear only when a prop script is present.
-    - [LS]plugins is deployed alone with [LS]sit, where no touch handler, no 90005
-      handling and no dump-to-chat may exist (they belong to [LS]sit/[LS]adjuster).
+    - [LS]plugins is used with [LS]sit, where the touch handler, 90005 handling and
+      dump-to-chat belong to [LS]sit/[LS]adjuster.
     - [LS]menu removes itself when a sit script is present.
-    A merged script would have to switch all of that on and off at runtime;
-    two scripts keep every existing deployment exactly as it was.
 
-  Works with "[LS]plugins" (its PROP module replaced [LS]prop), or the LSL "[AV]prop" for mixed setups. Removes itself
-  when "[LS]sit" (or the LSL "[AV]sitA") is in the prim, like upstream.
+  Works with "[LS]plugins" (its PROP module), or the LSL "[AV]prop" for mixed
+  setups. Removes itself when "[LS]sit" (or the LSL "[AV]sitA") is in the prim,
+  like upstream.
 
-  Behaviour changes:
+  Changes from upstream:
     - PR #78 (issues #75, #77): 90004 and 90005 are honoured. 90004 (and touch)
       opens the top menu; 90005 with a MENU name opens that submenu; 90005 with
       no known submenu re-shows the current menu for the same avatar, or the
@@ -36,8 +35,8 @@
       FIX: upstream PR #78 compared the avatar name after overwriting it, so the
       "different avatar -> top menu" branch could never run.
     - FIX: adding a prop with [NEW] inserts a BUTTON at the start of the menu
-      list; the current submenu index is now shifted too (it pointed at the
-      wrong entry afterwards).
+      list; upstream did not shift the current submenu index, so it pointed at
+      the wrong entry.
     - Fast notecard reader (sync read with async fallback).
     - DUMP lines are paced by a queue of LLTimers (0.2 s per line, as upstream)
       instead of llSleep; the request for the prop lines (90020) is queued after
@@ -68,7 +67,7 @@ local function posCardSig(): string
 end
 local SEP = "\u{FFFD}"
 
--- Character count (ll.StringLength is deprecated; # counts bytes, utf8.len counts characters).
+-- Character count (# counts bytes; ll.StringLength is deprecated).
 local function charLen(s: string): number
     return utf8.len(s) or #s
 end
@@ -702,7 +701,7 @@ local function onNotecardLine(data: string, _n: number)
         command = ll.GetSubString(data, 1, sp - 1)
         rest = ll.GetSubString(data, sp + 1, 99999)
     else
-        command = ll.GetSubString(data, 1, -2) -- LSL quirk: llGetSubString(data, 0, -2)
+        command = ll.GetSubString(data, 1, -2) -- upstream quirk: with no space, the last character is dropped
         rest = data
     end
     local parts = ll.ParseStringKeepNulls(rest, {" | ", " |", "| ", "|"}, {})

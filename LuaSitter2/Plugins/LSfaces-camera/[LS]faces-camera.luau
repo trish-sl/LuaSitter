@@ -10,7 +10,7 @@
 
 --[[
   What it does:
-    Replaces [LS]faces and [LS]camera (ports of [AV]faces and [AV]camera).
+    Replaces upstream [AV]faces and [AV]camera in one script.
     - Faces: reads "ANIM <pose>|<anim>|<secs>|<anim>|<secs>..." lines from the LSpos (or AVpos)
       notecard(s) and, while a sitter plays a matching pose, plays that sequence of
       facial expressions on the sitter. A number instead of an anim name selects one
@@ -21,16 +21,16 @@
       sitter whenever the sitter plays a matching pose (or the DEFAULT camera), or
       when a camera preset is chosen by a menu BUTTON (90230/90231).
 
-  Copies (one per sitter, like the old [LS]camera):
+  Copies (one per sitter, like upstream [AV]camera):
     "[LS]faces-camera" is copy 0, "[LS]faces-camera N" is copy N (the number after
     the space). llSetCameraParams acts on the avatar that granted
-    PERMISSION_CONTROL_CAMERA, and a script can hold permissions for only ONE avatar,
+    PERMISSION_CONTROL_CAMERA, and a script can hold permissions for only one avatar,
     so camera control needs one copy per sitter.
     - Copy N handles CAMERA lines, camera permission and faces of sitter N.
-    - Copy 0 handles camera and faces of sitter 0, AND the faces of every sitter N
+    - Copy 0 handles camera and faces of sitter 0, and the faces of every sitter N
       that has no "[LS]faces-camera N" copy in inventory (re-evaluated on
-      CHANGED_INVENTORY without a reset). So a single copy behaves like the old single
-      [LS]faces (all sitters) plus a single [LS]camera (sitter 0).
+      CHANGED_INVENTORY without a reset). So a single copy behaves like a single
+      [AV]faces (all sitters) plus a single [AV]camera (sitter 0).
     - Copy 0 must be present (the [LS]adjuster looks for it, and only copy 0 answers
       the [FACES] menu toggle).
     - Notecard names: "LSpos" is read when present, else "AVpos" (same format).
@@ -38,7 +38,7 @@
       sitter N's section (SITTER header optional). For sitters with an own card, their
       ANIM/CAMERA lines in the main notecard are ignored.
 
-  Link messages (same numbers/formats as the old scripts, routed per copy):
+  Link messages (same numbers/formats as upstream, routed per copy):
     - 90020 DUMP (from [LS]adjuster, LINK_THIS): msg = sitter#, id = "[LS]faces-camera".
       Exactly one copy answers: copy N when msg == N, else copy 0 when there is no
       "[LS]faces-camera <msg>" copy. It sends that sitter's ANIM lines then CAMERA lines
@@ -50,10 +50,10 @@
     - 90100 "[FACES]" (owner only) toggles expressions in every copy; only copy 0 sends
       the 90101 menu return and the chat confirmation/refusal.
     - 90230/90231 camera preset by BUTTON: the copy whose sitter matches.
-    - 90045, 90065, 90070, 90030/90032: as before.
+    - 90045, 90065, 90070, 90030/90032: as upstream.
 
-  Behaviour changes vs the old scripts:
-    - Notecards are read with the fast synchronous reader.
+  Changes from upstream:
+    - Notecards are read with ll.GetNotecardLineSync (async fallback on NAK).
     - Per-sitter cards are found by name for any N (not only N below the number of
       [LS]sit copies), and are read even if the main notecard is missing.
     - The script resets when the main notecard or the per-sitter card of a sitter it
@@ -62,16 +62,16 @@
     - Running sequences and the last camera chosen by button reference data records.
       FIX: upstream stored list indices, which pointed elsewhere after the adjuster
       removed an ANIM (90172) or CAMERA (90174) line.
-    - FIX: numeric (built-in) expressions are now stopped (90002) when the sequence
+    - FIX: numeric (built-in) expressions are stopped (90002) when the sequence
       ends; upstream skipped them, leaving the last one playing until it expired.
-    - The [FACES] toggle and the 90101 menu return are only sent by copy 0 (several
-      copies would otherwise duplicate them). 90172 re-enables expressions in every
-      copy (like the old single [LS]faces).
+    - The [FACES] confirmation and the 90101 menu return are only sent by copy 0
+      (several copies would otherwise duplicate them). 90172 re-enables
+      expressions in every copy (as upstream [AV]faces).
     - Ready message: "<n> Expressions, <m> Cameras Ready".
     - Timer: one LLTimers timer per copy for the expression sequences.
     - DUMP lines are paced by LLTimers (0.2 s per line, as upstream) instead of
-      llSleep, with 90021 sent after the last line as before; dumps requested
-      while one is running are sent after it. The camera refresh after another
+      llSleep, with 90021 sent after the last line; dumps requested while one is
+      running are sent after it. The camera refresh after another
       sitter stands up waits 0.1 s on a timer instead of llSleep.
 ]]
 
@@ -282,8 +282,7 @@ local function Out(level: number, out: string)
 end
 
 -- Dump lines to the adjuster, paced 0.2 s apart (as upstream, so its event queue
--- cannot overflow). Upstream slept before each line; a queue of LLTimers keeps the
--- same pacing and order without blocking the script.
+-- cannot overflow), by a queue of LLTimers instead of llSleep.
 local outQueue: {() -> ()} = {}
 local pumping = false
 
@@ -639,7 +638,7 @@ local function parseLine(data: string): (string, string, string)
     end
     data = ll.StringTrim(data, STRING_TRIM)
     local sp = ll.SubStringIndex(data, " ")
-    -- LSL quirk kept: without a space the command is the line minus its last character
+    -- upstream quirk: without a space the command is the line minus its last character
     local command = if sp then ll.GetSubString(data, 1, sp - 1) else ll.GetSubString(data, 1, -2)
     local rest = if sp then ll.GetSubString(data, sp + 1, -1) else data
     local parts = ll.ParseStringKeepNulls(rest, { " | ", " |", "| ", "|" }, {})
@@ -849,7 +848,7 @@ LLEvents:on("link_message", function(sender: number, num: number, msg: string, i
         end
     elseif num == 90172 then
         -- adjuster: set ("anim") or clear ("none") the expression for the current pose
-        is_running = true -- in every copy, like the old single [LS]faces
+        is_running = true -- in every copy, as upstream [AV]faces
         local sitter = int(msg)
         if sitter < 0 or not handlesFaces(sitter) then
             return

@@ -189,10 +189,10 @@ local function get_notecards_signature(): string
     return sig
 end
 
--- Menus that list one button per sitter (or avatar) are paged, so there is no
--- limit of 11 sitters. When everything fits in one dialog (12 buttons) the menu
--- is unchanged. Otherwise each page shows as many names as fit, padded with " ",
--- then the fixed buttons, then PAGE_PREV / PAGE_NEXT (pages wrap around).
+-- Pages a list of per-sitter buttons, so there is no limit of 11 sitters. When
+-- everything fits in one dialog (12 buttons) there are no pages. Otherwise each
+-- page shows as many names as fit, padded with " ", then the fixed buttons, then
+-- PAGE_PREV / PAGE_NEXT (pages wrap around).
 local PAGE_PREV, PAGE_NEXT = "[<<]", "[>>]"
 local function pageOf(items: {string}, fixed: {string}, page: number): ({string}, number)
     local out = {}
@@ -318,10 +318,11 @@ end)
 
 --------------------------------------------------------------------------
 -- Notecard parsing
--- only_sitter: nil for the main AVpos; n for "AVpos n" (only the section of
--- sitter n is used, lines before any SITTER line belong to sitter n).
--- skip: sitters whose section is ignored in the main AVpos (they have their
--- own notecard).
+-- only_sitter: nil for the main notecard (LSpos or AVpos); n for "LSpos sitter n"
+-- (only the section of sitter n is used; lines before any SITTER line belong to
+-- sitter n).
+-- skip_sections: sitters whose section is ignored in the main notecard (they
+-- have their own notecard).
 --------------------------------------------------------------------------
 local skip_sections: {[number]: boolean} = {}
 
@@ -331,7 +332,7 @@ local function parse_line(data: string, only_sitter: number?)
         data = ll.GetSubString(data, diamond + 1, -1)
     end
     data = ll.StringTrim(data, STRING_TRIM)
-    -- (same quirk as LSL when there is no space: command loses its last char)
+    -- same quirk as upstream: with no space, the command loses its last character
     local sp = ll.SubStringIndex(data, " ")
     local command, rest
     if sp then

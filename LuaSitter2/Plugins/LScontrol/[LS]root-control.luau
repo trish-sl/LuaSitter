@@ -31,6 +31,8 @@
     - With [LS]root-RLV the avatar menu says what it is for ("RLV ▸ which
       avatar?") and the capture button is "Capture new…" (upstream:
       "Capture...", still accepted).
+    - The avatar menu is paged ([<<] / [>>]) when it needs more than 12
+      buttons (upstream: at most 12 buttons).
     - Looks for "[LS]root-RLV" instead of "[AV]root-RLV".
     - FIX: the sitter-choice buttons were passed through order_buttons()
       twice (once by the caller, once in dialog()), scrambling their order
@@ -100,10 +102,10 @@ local function dialog(text: string, menu_items: {string}, id: string)
     end)
 end
 
--- Menus that list one button per sitter (or avatar) are paged, so there is no
--- limit of 11 sitters. When everything fits in one dialog (12 buttons) the menu
--- is unchanged. Otherwise each page shows as many names as fit, padded with " ",
--- then the fixed buttons, then PAGE_PREV / PAGE_NEXT (pages wrap around).
+-- One page of a menu with one button per sitter. When everything fits in one
+-- dialog (12 buttons) there is a single page. Otherwise each page shows as many
+-- names as fit, padded with " ", then the fixed buttons, then PAGE_PREV /
+-- PAGE_NEXT (pages wrap around).
 local PAGE_PREV, PAGE_NEXT = "[<<]", "[>>]"
 local CAPTURE_NEW = "Capture new…" -- upstream: "Capture..."
 local function pageOf(items: {string}, fixed: {string}, page: number): ({string}, number)
@@ -170,7 +172,6 @@ local function controller_menu(id: string)
             end
         end
         if #menu_items > 0 then
-            -- more than 12 buttons: paged with [<<] / [>>] (no limit of 11 sitters)
             local buttons
             buttons, controller_page = pageOf(menu_items, fixed, controller_page)
             dialog(text, buttons, id) -- FIX: was order_buttons()'d twice

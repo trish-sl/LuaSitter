@@ -2,7 +2,7 @@
 
 > **LuaSitter note:** This page is from the [AVsitter documentation](https://avsitter.github.io) (CC BY-SA 4.0, see [LICENSE](../LICENSE.md)), adapted for LuaSitter. Everything here applies to LuaSitter2: the AVpos notecard format and the link messages are unchanged. LuaSitter also reads the notecard under its new name, `LSpos` (preferred for new furniture). Script names differ: `[AV]name` is `[LS]name` in LuaSitter, and `[AV]sitA` + `[AV]sitB` are one script, `[LS]sit`. See [Migrating from AVsitter](../luasitter/migrating-from-avsitter.md) and the [LuaSitter notes](#luasitter-notes) at the end of this page.
 
-# The [AV]LockMeister plugin
+## The [AV]LockMeister plugin
 
 LockMeister provides us with functionality to make our furniture emit particles towards specific points of the cuffs, collar, etc. This plugin implements LockMeister in an AVsitter setup (props are not supported yet). We need to follow these steps in order to make the plugin work.
 
@@ -43,3 +43,4 @@ See the [mooring points list page](http://wiki.secondlife.com/wiki/LSL_Protocol/
   - the sitter is set with `local SITTER = 0` (for example `local SITTER = 2`);
   - `POSES` is a Lua table with one entry per pose, `["pose name in the menu"] = "destination point,prim name,destination point,prim name",`. A comma after the last entry is allowed in Lua, so the syntax error described above cannot happen. A pose name of `"*"` sets a default for all poses;
   - the chain texture is the `PSYS_SRC_TEXTURE` value in the `SetChain` function.
+- To chain several sitters from one script, set up by notecard, use `[LS]chains` instead (not together with `[LS]LockMeister`). See [Chains](../luasitter/chains.md).

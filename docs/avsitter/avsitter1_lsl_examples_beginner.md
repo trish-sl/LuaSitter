@@ -1,10 +1,11 @@
 # AVsitter1 LSL Examples (Beginner)
 
-> **LuaSitter note:** These examples are from the [AVsitter documentation](https://avsitter.github.io). They are LSL scripts and still work next to LuaSitter, because the link messages are unchanged (where a comment mentions an `[AV]` script, read the `[LS]` script). For SLua (Lua) versions of plugin scripts, see [Writing plugins in Lua](../luasitter/lua-plugins.md).
-
+> **LuaSitter note:** These examples are from the [AVsitter documentation](https://avsitter.github.io). They are LSL scripts for AVsitter1 and work next to LuaSitter1, because the link messages are unchanged. See [LuaSitter1/README.md](../../LuaSitter1/README.md).
 
 > **Note:** The following LSL script examples are dedicated to the Public Domain under the [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
-> **Important:** Please read useage instructions given in the header of each script.
+
+> **Important:** Please read usage instructions given in the header of each script.
+
 > **Tip:** Visit the [LSL Portal](http://wiki.secondlife.com/wiki/Category:LSL_Functions) for function reference.
 
 ## Basic Color Change

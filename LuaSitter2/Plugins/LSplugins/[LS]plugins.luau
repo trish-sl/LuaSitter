@@ -24,8 +24,8 @@
       - FAVS: per avatar and per seat favourite poses, in memory only. BUTTON lines
         send 90401 (add the playing pose), 90402 (remove it), 90403 (show the list).
 
-  Replaces (merges): [LS]prop, [LS]sequence and [LS]favs (upstream [AV]prop,
-  [AV]sequence and [AV]favs). [LS]menu and [LS]object stay separate scripts.
+  Replaces (merges) upstream [AV]prop, [AV]sequence and [AV]favs. [LS]menu and
+  [LS]object are separate scripts.
 
   Structure:
     - shared prelude (helpers, Out, resetAll)
@@ -33,34 +33,33 @@
       state and its own event handlers (LLEvents allows several handlers per
       event). Modules do not call each other; the only shared action is resetAll().
 
-  Behaviour changes vs the three separate scripts:
-    - Creators can no longer remove a single feature, but an unused feature costs
-      almost nothing:
+  Changes from the three upstream scripts:
+    - A single feature cannot be removed, but an unused feature costs almost
+      nothing:
         PROP without props: no chat listen is opened (it opens on the first rez),
         and no REM_* commands are chatted (nothing can have been rezzed).
         SEQUENCE without a settings notecard: its link_message / listen / on_rez
         handlers are never registered; only the inventory check remains.
         FAVS: a link_message handler only; a listen exists only while its dialog
         is open.
-    - Resets: the script resets (ll.ResetScript) when ANY former reset trigger
-      happens: LSpos (or AVpos) notecard changed (prop), sequence settings notecard
-      added/changed/removed (sequence), number of "[LS]sit N" scripts changed while
-      sequences are loaded (sequence). A reset reloads ALL three modules; in
-      particular the in-memory favourites are lost (upstream [AV]favs never reset).
-      Before every reset the prop module sends REM_ALL (as upstream [AV]prop did
-      before its own notecard reset), because after a reset the prop chat channel
-      changes and props rezzed before could no longer be controlled.
-    - Dump: the prop module answers 90020 when id == "[LS]plugins" (was the
-      script name "[LS]prop"), sends its 90022 lines and then 90021 with
+    - Resets: the script resets (ll.ResetScript) on any of the upstream scripts'
+      reset triggers: LSpos (or AVpos) notecard changed (prop), sequence settings
+      notecard added/changed/removed (sequence), number of "[LS]sit N" scripts
+      changed while sequences are loaded (sequence). A reset reloads all three
+      modules, so the in-memory favourites are lost (upstream [AV]favs never
+      reset). Before every reset the prop module sends REM_ALL (as upstream
+      [AV]prop did before its notecard reset), because after a reset the prop
+      chat channel changes and earlier props could not be controlled.
+    - Dump: the prop module answers 90020 when id == "[LS]plugins" (upstream: its
+      script name "[AV]prop"), sends its 90022 lines and then 90021 with
       id = "[LS]plugins". The 90022 lines are paced by a timer (0.2 s apart, like
       upstream's llSleep) instead of blocking the script.
     - Startup chat: "N Props Ready" is only said when there are props, and
       "N Sequences Ready" only when a sequence notecard exists.
-    - FAVS "Memory full" check: the script memory is now shared by the three
+    - FAVS "Memory full" check: the script memory is shared by the three
       modules, so the check (5.5 KB below the SLua memory limit) accounts for the
       props and sequences loaded too.
-    - Module-specific changes carried over from [LS]prop / [LS]sequence /
-      [LS]favs are listed above each module.
+    - Module-specific changes are listed above each module.
 ]]
 
 local version = "3.0-lua1"
@@ -212,11 +211,11 @@ local function resetAll()
 end
 
 --------------------------------------------------------------------------
--- PROP module (was [LS]prop / [AV]prop)
+-- PROP module (upstream [AV]prop)
 --   Works with the sit script "[LS]sit" (copies "[LS]sit 1", ...); for mixed
 --   setups the LSL "[AV]sitA" is also recognised when no "[LS]sit" is present.
 --   Without any sit script it works in "menu mode" ([LS]menu / [AV]menu).
---   Changes carried over from [LS]prop:
+--   Changes from upstream:
 --     - 90032 (swap and return the menu, issue #140) is handled like 90030.
 --     - Fast notecard reader (sync read with async fallback).
 --------------------------------------------------------------------------
@@ -498,10 +497,10 @@ do
         end
         if text ~= "" then
             if main_script() then
-                -- This is [LS]sit, send the command to all sitters
+                -- with a sit script: send the command to all sitters
                 send_command("REM_INDEX" .. text)
             else
-                -- Presumed to be launched from [LS]menu; avoid removing attachments from others
+                -- no sit script, so presumably [LS]menu: avoid removing others' attachments
                 send_command("REM_WORLD" .. text) -- this removes inworld props only
                 local s0 = getSitter(0)
                 if isKey(s0) then
@@ -834,7 +833,7 @@ do
             command = ll.GetSubString(data, 1, sp - 1)
             rest = ll.GetSubString(data, sp + 1, 99999)
         else
-            command = ll.GetSubString(data, 1, -2) -- LSL quirk: llGetSubString(data, 0, -2)
+            command = ll.GetSubString(data, 1, -2) -- upstream quirk: with no space, the last character is dropped
             rest = data
         end
         local parts = ll.ParseStringKeepNulls(rest, {" | ", " |", "| ", "|"}, {})
@@ -888,28 +887,28 @@ do
 end
 
 --------------------------------------------------------------------------
--- SEQUENCE module (was [LS]sequence / [AV]sequence)
+-- SEQUENCE module (upstream [AV]sequence)
 --   Notecard ("[LS]sequence_settings", else "[AV]sequence_settings"):
 --       SEQUENCE <name>
 --       PLAY <pose> | WAIT <seconds> | SAY <text> | WHISPER <text>
 --       SOUND <sound>|<volume> | LOOP
 --       DEBUG <level>
 --   In SAY/WHISPER text, "/0", "/1"... are replaced by the first name of that sitter.
---   Changes carried over from [LS]sequence:
---     - LSL states emulated: until the notecard is fully read (state default) the
---       module ignores link messages and dialogs; here its handlers are simply
---       registered only once the notecard is loaded (never without a notecard).
---     - Single one-shot LLTimers timer replaces llSetTimerEvent (WAIT n arms it
---       for n seconds; WAIT 0 or negative stops the sequence there).
+--   Changes from upstream:
+--     - No LSL states: upstream ignored link messages and dialogs until the
+--       notecard was read (state default); here the handlers are registered only
+--       once the notecard is loaded (never without a notecard).
+--     - A one-shot LLTimers timer replaces llSetTimerEvent (WAIT n arms it for
+--       n seconds; WAIT 0 or negative stops the sequence there).
 --     - Sequences are stored as records instead of strings joined with "◆".
 --     - 90032 (swap and return the menu, issue #140) is handled like 90030.
 --     - The 0.5 s pause after each PLAY is a timer step instead of llSleep(0.5),
 --       so other modules stay responsive during it. A sequence link message or
 --       menu answer arriving during the pause first completes the steps up to the
 --       next WAIT, so it is handled at the same point as upstream.
---     - FIX: the sound preloading during a WAIT of 2 s or more now finds the
---       next SOUND before the next WAIT (upstream always looked at the step
---       right after the WAIT).
+--     - FIX: the sound preloading during a WAIT of 2 s or more finds the next
+--       SOUND before the next WAIT (upstream always looked at the step right
+--       after the WAIT).
 --------------------------------------------------------------------------
 do
     local product = "LuaSitter sequence"
@@ -1293,14 +1292,14 @@ do
 end
 
 --------------------------------------------------------------------------
--- FAVS module (was [LS]favs / [AV]favs)
---   Changes carried over from [LS]favs:
+-- FAVS module (upstream [AV]favs)
+--   Changes from upstream:
 --     - Favourites are stored in a table keyed by "uuid..sitter#" instead of one
 --       flat list with marker strings.
 --     - 90032 (swap and return the menu, issue #140) is handled like 90030.
 --     - "Memory full" limit is relative to the SLua memory limit (same 5.5 KB
---       margin upstream had below the 64 KB Mono limit); the memory is now
---       shared with the other modules.
+--       margin upstream had below the 64 KB Mono limit); the memory is shared
+--       with the other modules.
 --     - FIX: dialog paging ([<<] / [>>]) used the length of the whole favourites
 --       storage instead of the list being shown.
 --------------------------------------------------------------------------
