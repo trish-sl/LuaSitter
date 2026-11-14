@@ -233,14 +233,13 @@ end
 -- state (sitA half)
 --------------------------------------------------------------------------------
 local scriptName = ll.GetScriptName()
-local SCRIPT_CHANNEL = 0
+local SC = 0 -- script channel: N of "[LS]sit N" (0 for "[LS]sit")
 do
     local sp = ll.SubStringIndex(scriptName, " ")
     if sp then
-        SCRIPT_CHANNEL = int(ll.GetSubString(scriptName, sp, -1))
+        SC = int(ll.GetSubString(scriptName, sp, -1))
     end
 end
-local SC = SCRIPT_CHANNEL
 
 local SITTERS: { string } = {}      -- 0-based sitter n is SITTERS[n+1]; "" = empty seat
 local SWAPPED = false
@@ -334,14 +333,18 @@ local apply_anim_info: (boolean) -> ()
 --------------------------------------------------------------------------------
 -- animation helpers
 --------------------------------------------------------------------------------
+local function canAnimate(anim: string): boolean
+    return anim ~= "" and hasAnimPerm() and agentPresent(tostring(ll.GetPermissionsKey()))
+end
+
 local function startAnim(anim: string)
-    if anim ~= "" and hasAnimPerm() and agentPresent(tostring(ll.GetPermissionsKey())) then
+    if canAnimate(anim) then
         ll.StartAnimation(anim)
     end
 end
 
 local function stopAnim(anim: string)
-    if anim ~= "" and hasAnimPerm() and agentPresent(tostring(ll.GetPermissionsKey())) then
+    if canAnimate(anim) then
         ll.StopAnimation(anim)
     end
 end
@@ -376,6 +379,11 @@ local function primcount_error()
     ll.Dialog(ll.GetOwner(), "\nThere aren't enough prims for required SitTargets.\nYou must have one prim for each avatar to sit!", { "OK" }, 23658)
 end
 
+-- link number of my sit target prim (a single prim object uses link 0)
+local function sitTargetLink(): number
+    return if ll.GetNumberOfPrims() == 1 and my_sittarget == 1 then 0 else my_sittarget
+end
+
 local function set_sittarget()
     local target_pos = DEFAULT_POSITION
     local target_rot = ll.Euler2Rot(DEFAULT_ROTATION * DEG_TO_RAD)
@@ -397,10 +405,7 @@ local function set_sittarget()
             target_rot = target_rot / local_target_prim_rot
         end
     end
-    local target = my_sittarget
-    if ll.GetNumberOfPrims() == 1 and target == 1 then
-        target = 0
-    end
+    local target = sitTargetLink()
     if descAllowsSitTarget(primDesc(target)) then
         ll.LinkSitTarget(target, target_pos - vector(0, 0, 0.4) + quaternion.toup(target_rot) * 0.05, target_rot)
     end
@@ -433,13 +438,12 @@ local function sittargets()
         my_sittarget = ll.GetLinkNumber()
         SITTERS_SITTARGETS = { my_sittarget }
     else
-        local assigned = {}
+        local assigned: { boolean } = {}
+        local unassigned = #SITTERS
         for i = 1, #SITTERS do
             SITTERS_SITTARGETS[i] = 1000
-            assigned[i] = false
         end
         for i = 1, prims do
-            local nextFree = table.find(SITTERS_SITTARGETS, 1000)
             local desc = primDesc(i)
             local hash = ll.SubStringIndex(desc, "#")
             if hash then
@@ -453,14 +457,20 @@ local function sittargets()
                         -- FIX: upstream appended out-of-range sitter numbers to the list
                         if slot >= 1 and slot <= #SITTERS then
                             SITTERS_SITTARGETS[slot] = i
-                            assigned[slot] = true
-                            if not table.find(assigned, false) then
+                            if not assigned[slot] then
+                                assigned[slot] = true
+                                unassigned -= 1
+                            end
+                            if unassigned == 0 then
                                 break
                             end
                         end
                     end
-                elseif nextFree then
-                    SITTERS_SITTARGETS[nextFree] = i
+                else
+                    local nextFree = table.find(SITTERS_SITTARGETS, 1000)
+                    if nextFree then
+                        SITTERS_SITTARGETS[nextFree] = i
+                    end
                 end
             end
         end
@@ -478,11 +488,13 @@ end
 -- link number of my sitter, or nil when not seated
 local function mySitterLink(): number?
     local sitter_prim = ll.GetNumberOfPrims()
-    while ll.GetAgentSize(ll.GetLinkKey(sitter_prim)) ~= ZERO_VECTOR do
-        if tostring(ll.GetLinkKey(sitter_prim)) == MY_SITTER then
+    local k = ll.GetLinkKey(sitter_prim)
+    while ll.GetAgentSize(k) ~= ZERO_VECTOR do
+        if tostring(k) == MY_SITTER then
             return sitter_prim
         end
         sitter_prim -= 1
+        k = ll.GetLinkKey(sitter_prim)
     end
     return nil
 end
@@ -552,8 +564,9 @@ local function setSequenceTimer(seconds: number)
     end
 end
 
-local function update_current_anim_name()
-    local sequence = split(CURRENT_ANIMATION_SEQUENCE, SEP)
+-- split_sequence: CURRENT_ANIMATION_SEQUENCE already split (else it is split here)
+local function update_current_anim_name(split_sequence: { string }?)
+    local sequence = split_sequence or split(CURRENT_ANIMATION_SEQUENCE, SEP)
     CURRENT_ANIMATION_FILENAME = at(sequence, SEQUENCE_POINTER)
     local speed_text = at({ "", "+", "-" }, speed_index)
     if ll.GetInventoryType(CURRENT_ANIMATION_FILENAME .. speed_text) == INVENTORY_ANIMATION then
@@ -570,7 +583,7 @@ onSequenceTimer = function()
         SEQUENCE_POINTER = 0
     end
     OLD_ANIMATION_FILENAME = CURRENT_ANIMATION_FILENAME
-    update_current_anim_name()
+    update_current_anim_name(sequence)
     if hasAnimPerm() and agentPresent(MY_SITTER) then
         startAnim(CURRENT_ANIMATION_FILENAME)
         if OLD_ANIMATION_FILENAME ~= "" and OLD_ANIMATION_FILENAME ~= CURRENT_ANIMATION_FILENAME then
@@ -1268,7 +1281,7 @@ local ADJUST_BUTTONS = { "Position", "Rotation", "X+", "Y+", "Z+", "X-", "Y-", "
 -- buttons and by the arrow keys ([LS]commands, 90018).
 -- step: nil = the adjust menu's step; rotate: nil = the menu's Position/Rotation mode
 local function nudge(axis: string, sign: number, step: number?, rotate: boolean?)
-    local amount = (step or num(at({ 0.05, 0.25, 0.01 }, increment_pointer))) * sign
+    local amount = (step or ({ 0.05, 0.25, 0.01 })[increment_pointer + 1] or 0) * sign
     local direction = vector(1, 0, 0)
     if axis == "Y" then
         direction = vector(0, 1, 0)
@@ -1482,10 +1495,7 @@ end)
 local function swapSitters(one: number, two: number, withMenu: boolean)
     if one == SC or two == SC then
         end_sitter()
-        local other = at(SITTERS, one)
-        if one == SC then
-            other = at(SITTERS, two)
-        end
+        local other = at(SITTERS, if one == SC then two else one)
         swapKey = other
         if isKey(other) then
             SWAPPED = true
@@ -1548,7 +1558,6 @@ end
 
 local function onLinkMessage(sender: number, n: number, msg: string, id: string)
     local one = int(msg)
-    local two = int(id)
 
     -- [LS]commands (chat commands / arrow keys) for this sitter
     if n == 90017 or n == 90018 then
@@ -1590,7 +1599,7 @@ local function onLinkMessage(sender: number, n: number, msg: string, id: string)
         release_sitter(one)
         return
     elseif n == 90030 or n == 90032 then -- swap sitters (90032: and give menu)
-        swapSitters(one, two, n == 90032)
+        swapSitters(one, int(id), n == 90032)
         return
     elseif n == 90070 then -- update SITTERS after permission granted
         if one ~= SC then
@@ -1622,10 +1631,7 @@ local function onLinkMessage(sender: number, n: number, msg: string, id: string)
         has_texture = true
         return
     elseif n == 90298 then -- show sit targets (/5 targets)
-        local target = my_sittarget
-        if ll.GetNumberOfPrims() == 1 and target == 1 then
-            target = 0
-        end
+        local target = sitTargetLink()
         ll.SetLinkPrimitiveParamsFast(target, { PRIM_TEXT, tostring(SET) .. "-" .. tostring(SC), vector(1, 1, 0), 1 })
         LLTimers:once(5, function()
             ll.SetLinkPrimitiveParamsFast(target, { PRIM_TEXT, "", vector(1, 1, 1), 1 })
@@ -1680,6 +1686,7 @@ local function onLinkMessage(sender: number, n: number, msg: string, id: string)
 
     ---------------------------------------------------------------- sitB part
     if n == 90000 or n == 90010 or n == 90003 or n == 90008 then
+        local two = int(id) -- before id is replaced by "*" below
         local index = find0(MENU_LIST, msg)
         if index == -1 then
             index = find0(MENU_LIST, "P:" .. msg)
@@ -1778,8 +1785,9 @@ LLEvents:on("changed", function(change: number)
         if SET == -1 and #SITTERS > 1 then
             local avprims = {}
             local i = ll.GetNumberOfPrims()
-            while ll.GetAgentSize(ll.GetLinkKey(i)) ~= ZERO_VECTOR do
-                local k = tostring(ll.GetLinkKey(i))
+            local lk = ll.GetLinkKey(i)
+            while ll.GetAgentSize(lk) ~= ZERO_VECTOR do
+                local k = tostring(lk)
                 if not table.find(SITTERS, k) then
                     local gender = bodyShape(k)
                     local first_available = find0(SITTERS, "")
@@ -1811,33 +1819,24 @@ LLEvents:on("changed", function(change: number)
                 end
                 table.insert(avprims, k)
                 i -= 1
+                lk = ll.GetLinkKey(i)
             end
             for s = 0, #SITTERS - 1 do
                 local sk = at(SITTERS, s)
                 if sk ~= "" and not table.find(avprims, sk) then
                     setSequenceTimer(0)
                     stood = true
-                    SITTERS[s + 1] = ""
-                    if s == SC and hasAnimPerm() then
-                        if isKey(MY_SITTER) then
-                            sendLinked(LINK_SET, 90065, SC, MY_SITTER) -- 90065=sitter gone
-                        end
-                        -- FIX: upstream tested (integer)CURRENT_ANIMATION_FILENAME here
-                        if agentPresent(MY_SITTER) and CURRENT_ANIMATION_FILENAME ~= "" then
-                            stopAnim(CURRENT_ANIMATION_FILENAME)
-                        end
-                        MY_SITTER = ""
-                        ll.ListenRemove(adj_handle)
-                    end
+                    -- FIX: upstream tested (integer)CURRENT_ANIMATION_FILENAME here; stopAnim
+                    -- (in release_sitter) skips an empty animation name instead
+                    release_sitter(s)
                 end
             end
         else
             for s = 0, #SITTERS - 1 do
                 local existing = at(SITTERS, s)
-                local actual = tostring(ll.AvatarOnLinkSitTarget(SITTERS_SITTARGETS[s + 1] or 0))
-                if #SITTERS == 1 then
-                    actual = tostring(ll.AvatarOnSitTarget())
-                end
+                local actual = tostring(if #SITTERS == 1
+                    then ll.AvatarOnSitTarget()
+                    else ll.AvatarOnLinkSitTarget(SITTERS_SITTARGETS[s + 1] or 0))
                 if existing ~= "" then
                     if actual == NULL then
                         setSequenceTimer(0)
@@ -1916,10 +1915,7 @@ LLEvents:on("run_time_permissions", function(perm: number)
         end
     end
     local permKey = tostring(ll.GetPermissionsKey())
-    local animation_menu_function = 0
-    if permKey ~= swapKey then
-        animation_menu_function = -1
-    end
+    local animation_menu_function = if permKey ~= swapKey then -1 else 0
     swapKey = ""
     MY_SITTER = permKey
     CONTROLLER = permKey

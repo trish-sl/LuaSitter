@@ -32,12 +32,7 @@
 
 local HELPER_NAMES = { "LShelper", "AVhelper" }
 -- Pose notecard: "LSpos" (LuaSitter name) is used when present, else "AVpos" (AVsitter name).
--- posCard(n) gives the name of sitter n's own notecard: "LSpos sitter N".
-local function posCard(n: number?): string
-    if n then
-        -- per-sitter notecard: never "LSpos 1", the name Second Life gives a duplicate copy
-        return "LSpos sitter " .. tostring(n)
-    end
+local function posCard(): string
     if ll.GetInventoryType("LSpos") ~= INVENTORY_NOTECARD and ll.GetInventoryType("AVpos") == INVENTORY_NOTECARD then
         return "AVpos"
     end
@@ -50,6 +45,7 @@ local function posCardSig(): string
 end
 local NULL = tostring(NULL_KEY)
 local number_per_page = 9
+local DIGIT_BUTTONS = { "1", "2", "3", "4", "5", "6", "7", "8", "9" }
 
 --------------------------------------------------------------------------
 -- helpers
@@ -95,14 +91,8 @@ local function fmtR(r: quaternion): string
 end
 
 local function L(t: { any }, i: number): string
-    if i < 0 then
-        i = #t + 1 + i
-    end
     local v = t[i]
-    if v == nil then
-        return ""
-    end
-    return tostring(v)
+    return if v == nil then "" else tostring(v)
 end
 
 local function replace(s: string, search: string, rep: string): string
@@ -114,9 +104,7 @@ local function orderButtons(b: { string }): { string }
     local n = #b
     for _, r in { { n - 2, n }, { n - 5, n - 3 }, { n - 8, n - 6 }, { n - 11, n - 9 } } do
         for i = math.max(r[1], 1), r[2] do
-            if i >= 1 then
-                table.insert(out, b[i])
-            end
+            table.insert(out, b[i])
         end
     end
     return out
@@ -185,6 +173,7 @@ local function clean_avhelper()
         for _, h in HELPER_NAMES do
             if string.sub(n, 1, #h) == h then
                 isHelper = true
+                break
             end
         end
         if isHelper then
@@ -265,11 +254,25 @@ local function get_contents(itype: number, newpage: number): { string }
     return contents
 end
 
-local function setActiveLink(sender: number)
-    active_link = sender
-    if ll.GetNumberOfPrims() == 1 then
-        active_link = 0
+-- 90040 / 90100 ("sitter|number of sitters"): adopt the sender's sitters and
+-- ask that sitter for its pose (90110); fresh = forget every helper too
+local function start_adjusting(sender: number, msg: string, fresh: boolean)
+    active_link = if ll.GetNumberOfPrims() == 1 then 0 else sender
+    local data = ll.ParseString2List(msg, { "|" }, {})
+    total_scripts = int(L(data, 2))
+    if fresh then
+        HELPER_KEY_LIST = {}
+        HELPER_AV_LIST = {}
+        HELPERS_REZZED = {}
+        for _ = 1, total_scripts do
+            table.insert(HELPER_KEY_LIST, NULL)
+            table.insert(HELPER_AV_LIST, NULL)
+            table.insert(HELPERS_REZZED, false)
+        end
     end
+    resetPosRot()
+    active_sitter = int(L(data, 1))
+    ll.MessageLinked(active_link, 90110, tostring(active_sitter), "")
 end
 
 --------------------------------------------------------------------------
@@ -317,12 +320,7 @@ LLEvents:on("link_message", function(sender: number, num_: number, msg: string, 
     elseif num_ == 90060 then
         ll.RegionSay(comm_channel, "DONEA")
     elseif num_ == 90040 then
-        setActiveLink(sender)
-        local data = ll.ParseString2List(msg, { "|" }, {})
-        total_scripts = int(L(data, 2))
-        resetPosRot()
-        active_sitter = int(L(data, 1))
-        ll.MessageLinked(active_link, 90110, tostring(active_sitter), "")
+        start_adjusting(sender, msg, false)
     elseif num_ == 90100 then
         ll.RegionSay(comm_channel, "DONEA")
         local i = ll.GetNumberOfPrims()
@@ -330,20 +328,7 @@ LLEvents:on("link_message", function(sender: number, num_: number, msg: string, 
             ll.UnSit(ll.GetLinkKey(i))
             i -= 1
         end
-        setActiveLink(sender)
-        local data = ll.ParseString2List(msg, { "|" }, {})
-        total_scripts = int(L(data, 2))
-        HELPER_KEY_LIST = {}
-        HELPER_AV_LIST = {}
-        HELPERS_REZZED = {}
-        for _ = 1, total_scripts do
-            table.insert(HELPER_KEY_LIST, NULL)
-            table.insert(HELPER_AV_LIST, NULL)
-            table.insert(HELPERS_REZZED, false)
-        end
-        resetPosRot()
-        active_sitter = int(L(data, 1))
-        ll.MessageLinked(active_link, 90110, tostring(active_sitter), "")
+        start_adjusting(sender, msg, true)
     elseif num_ == 90070 and sender == active_link then
         setAt(HELPER_AV_LIST, int(msg), id)
     elseif num_ == 90130 then
@@ -437,7 +422,7 @@ LLEvents:on("listen", function(chan: number, _name: string, uid: uuid, message: 
         elseif message == "[SUBMENU]" then
             adding = message
             ll.TextBox(ll.GetOwner(), "\n\nPlease type a name for your submenu:", comm_channel)
-        elseif table.find({ "1", "2", "3", "4", "5", "6", "7", "8", "9" }, message)
+        elseif table.find(DIGIT_BUTTONS, message)
             and (adding == "[POSE]" or adding == "[SYNC]" or adding == "[SYNC]2")
         then
             local anim = L(get_contents(INVENTORY_ANIMATION, choice_page), int(message))

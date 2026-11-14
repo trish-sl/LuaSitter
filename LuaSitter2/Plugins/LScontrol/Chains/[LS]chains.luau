@@ -174,13 +174,15 @@ end
 local function lgRing(scan: Scan, sc: number, name: string): string?
     if props_mode then
         for _, p in props do
-            if p.sitter == sc and p.rings[name] then
-                return p.rings[name]
+            local key = p.rings[name]
+            if key and p.sitter == sc then
+                return key
             end
         end
         for _, p in props do
-            if p.rings[name] then
-                return p.rings[name]
+            local key = p.rings[name]
+            if key then
+                return key
             end
         end
     end
@@ -411,14 +413,15 @@ end
 local function onOff(action: number, id: string)
     local parts = string.split(id, "|")
     local target = parts[#parts] or "" -- "controller|sitter" (BUTTON): the sitter
+    local all = seatList()
     local list: {Seat} = {}
-    for _, s in seatList() do
+    for _, s in all do
         if s.avatar == target then
             table.insert(list, s)
         end
     end
     if #list == 0 then
-        list = seatList() -- not a chained sitter: every sitter
+        list = all -- not a chained sitter: every sitter
     end
     local turn_off = action == 0
     if action == 2 then
@@ -579,17 +582,18 @@ local function parseLockMeister(params: string, n: number)
     local i = 1
     while i <= #t do
         local word = ll.ToLower(t[i])
-        if word == "size" and number(t[i + 1]) and number(t[i + 2]) then
-            lm_size = vector(number(t[i + 1]) :: number, number(t[i + 2]) :: number, 0)
+        local a, b, c = number(t[i + 1]), number(t[i + 2]), number(t[i + 3])
+        if word == "size" and a and b then
+            lm_size = vector(a, b, 0)
             i += 3
-        elseif word == "color" and number(t[i + 1]) and number(t[i + 2]) and number(t[i + 3]) then
-            lm_color = vector(number(t[i + 1]) :: number, number(t[i + 2]) :: number, number(t[i + 3]) :: number)
+        elseif word == "color" and a and b and c then
+            lm_color = vector(a, b, c)
             i += 4
-        elseif word == "life" and number(t[i + 1]) then
-            lm_life = number(t[i + 1]) :: number
+        elseif word == "life" and a then
+            lm_life = a
             i += 2
-        elseif word == "gravity" and number(t[i + 1]) then
-            lm_gravity = number(t[i + 1]) :: number
+        elseif word == "gravity" and a then
+            lm_gravity = a
             i += 2
         elseif word == "texture" and t[i + 1] then
             lm_texture = t[i + 1]

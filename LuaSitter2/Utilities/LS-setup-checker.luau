@@ -152,6 +152,41 @@ local function isLastStep(): boolean
     return #queue == 0
 end
 
+local function completeText(last: boolean): string
+    return if last then "Check complete, removing script." else "Check complete."
+end
+
+-- wait for the owner's answer to a dialog on `chan`, or time out after `secs` seconds
+local function awaitAnswer(chan: number, secs: number, onAnswer: (string) -> (), onTimeout: () -> ())
+    local handle = 0
+    local listener: any = nil
+    local timeout: any = nil
+    local function close()
+        ll.ListenRemove(handle)
+        if listener then
+            LLEvents:off("listen", listener)
+            listener = nil
+        end
+        if timeout then
+            LLTimers:off(timeout)
+            timeout = nil
+        end
+    end
+    listener = LLEvents:on("listen", function(c: number, _name: string, _id: uuid, msg: string)
+        if c ~= chan then
+            return
+        end
+        close()
+        onAnswer(msg)
+    end)
+    timeout = LLTimers:once(secs, function()
+        timeout = nil
+        close()
+        onTimeout()
+    end)
+    handle = ll.Listen(chan, "", ll.GetOwner(), "")
+end
+
 local function allDone()
     running = false
     if not inUtilitiesBox() then -- remove it except from Utilities box
@@ -188,7 +223,7 @@ local function checkPerms()
     Owner_Say(tostring(trans_count) .. " anims are TRANSFER")
     Owner_Say(tostring(copy_count) .. " anims are COPY.")
     Owner_Say(tostring(copy_trans_count) .. " anims are COPY-TRANSFER!")
-    Owner_Say(if isLastStep() then "Check complete, removing script." else "Check complete.")
+    Owner_Say(completeText(isLastStep()))
     Owner_Say("================================")
     Owner_Say(" ")
 end
@@ -244,7 +279,7 @@ local function checkAnims(onDone: () -> ())
     end
 
     local function finish()
-        Owner_Say(if last then "Check complete, removing script." else "Check complete.")
+        Owner_Say(completeText(last))
         Owner_Say("================================")
         Owner_Say(" ")
         onDone()
@@ -272,12 +307,8 @@ local function checkAnims(onDone: () -> ())
                         Owner_Say("Variable-Speed Animation '" .. anim .. "-' not found in inventory!")
                     end
                 end
-                if used[anim] == nil then -- only add if the anim has not appeared before
-                    used[anim] = is_variable_speed_submenu
-                elseif is_variable_speed_submenu then
-                    -- stays TRUE if ANY of the submenus the anim is used in is a Variable-Speed submenu
-                    used[anim] = true
-                end
+                -- added on first use; stays TRUE if ANY of the submenus the anim is used in is a Variable-Speed submenu
+                used[anim] = used[anim] or is_variable_speed_submenu
             end
         elseif command == "MENU" or command == "SITTER" then
             is_variable_speed_submenu = (command == "MENU" and L(parts, -1) == "V")
@@ -312,25 +343,7 @@ local function checkAnims(onDone: () -> ())
             finish()
             return
         end
-        local handle: number = 0
-        local timeout: any = nil
-        local listener: any = nil
-        local function close()
-            ll.ListenRemove(handle)
-            if listener then
-                LLEvents:off("listen", listener)
-                listener = nil
-            end
-            if timeout then
-                LLTimers:off(timeout)
-                timeout = nil
-            end
-        end
-        listener = LLEvents:on("listen", function(chan: number, _name: string, _id: uuid, msg: string)
-            if chan ~= ANIM_DIALOG_CHANNEL then
-                return
-            end
-            close()
+        awaitAnswer(ANIM_DIALOG_CHANNEL, 60, function(msg: string)
             if msg == "YES" then
                 for _, a in unused do
                     if ll.GetInventoryType(a) == INVENTORY_ANIMATION then
@@ -340,14 +353,10 @@ local function checkAnims(onDone: () -> ())
                 end
             end
             finish()
-        end)
-        timeout = LLTimers:once(60, function()
-            timeout = nil
-            close()
+        end, function()
             Owner_Say("timeout")
             finish()
         end)
-        handle = ll.Listen(ANIM_DIALOG_CHANNEL, "", ll.GetOwner(), "")
         ll.Dialog(ll.GetOwner(), "\n" .. tostring(#unused)
             .. " unused (surplus) anims were found. Do you want to delete them?\n\nMake sure you take a backup of your work first!",
             { "YES", "NO" }, ANIM_DIALOG_CHANNEL)
@@ -450,7 +459,7 @@ local function checkNotecard(onDone: () -> ())
     local last = isLastStep()
     if ll.GetInventoryType(NOTECARD_BASENAME) ~= INVENTORY_NOTECARD then
         Owner_Say(NOTECARD_BASENAME .. " notecard not found.")
-        Owner_Say(if last then "Check complete, removing script." else "Check complete.")
+        Owner_Say(completeText(last))
         onDone()
         return
     end
@@ -464,10 +473,10 @@ local function checkNotecard(onDone: () -> ())
     local own: {[number]: boolean} = {}
     for i = 1, ll.GetInventoryNumber(INVENTORY_NOTECARD) do
         local n = ll.GetInventoryName(INVENTORY_NOTECARD, i)
-        local num = string.match(n, "^LSpos sitter ([1-9]%d*)$")
+        local num = tonumber(string.match(n, "^LSpos sitter ([1-9]%d*)$") or "")
         if num then
-            table.insert(cards, { name = n, sitter = tonumber(num) })
-            own[tonumber(num) or 0] = true
+            table.insert(cards, { name = n, sitter = num })
+            own[num] = true
         end
     end
 
@@ -606,10 +615,7 @@ local function checkNotecard(onDone: () -> ())
         end
         if command == "POSE" or command == "SYNC" then
             -- animation, seconds, animation, seconds... (a last M / F marks a gender pose)
-            local seq = {}
-            for i = 2, #parts do
-                table.insert(seq, parts[i])
-            end
+            local seq = table.move(parts, 2, #parts, 1, {})
             if #seq > 0 then
                 seq[#seq] = ll.StringTrim(seq[#seq], STRING_TRIM)
             end
@@ -634,7 +640,8 @@ local function checkNotecard(onDone: () -> ())
                         seenSync[name] = true
                         local lacking = {}
                         for o = 0, sitters - 1 do
-                            if (syncs[o] or {})[name] == nil then
+                            local other = syncs[o]
+                            if other == nil or other[name] == nil then
                                 table.insert(lacking, tostring(o))
                             end
                         end
@@ -651,7 +658,7 @@ local function checkNotecard(onDone: () -> ())
         else
             Owner_Say(tostring(problems) .. " problem(s) found.")
         end
-        Owner_Say(if last then "Check complete, removing script." else "Check complete.")
+        Owner_Say(completeText(last))
         Owner_Say("================================")
         Owner_Say(" ")
         onDone()
@@ -802,11 +809,7 @@ local function readNotecards(list: {string})
             return
         end
         -- (upstream labels only the first notecard with "(notecard)")
-        if i == 1 then
-            add_out("\n" .. list[i] .. " (notecard)\n-----------", false)
-        else
-            add_out("\n" .. list[i] .. "\n-----------", false)
-        end
+        add_out("\n" .. list[i] .. (if i == 1 then " (notecard)" else "") .. "\n-----------", false)
         readNotecard(list[i], function(body: string, _n: number)
             add_out(body, false)
         end, function(_total: number)
@@ -856,20 +859,17 @@ local function reportRun(menu_channel: number)
     local notecards_to_read: {string} = {}
     for j = 1, #item_types do
         local itype = item_ints[j]
-        local type_heading_sent = false
+        local total = ll.GetInventoryNumber(itype)
+        if total > 0 then
+            add_out("\n----" .. item_types[j] .. "S----", false)
+        end
         local count = 0 -- numbering skips this script
-        for i = 1, ll.GetInventoryNumber(itype) do
-            if not type_heading_sent then
-                add_out("\n----" .. item_types[j] .. "S----", false)
-                type_heading_sent = true
-            end
+        for i = 1, total do
             local name = ll.GetInventoryName(itype, i)
             if name ~= SCRIPT then
                 local perms = ll.GetInventoryPermMask(name, MASK_OWNER)
-                if bit32.band(perms, PERM_COPY) ~= 0 then
-                    if itype == INVENTORY_NOTECARD then
-                        table.insert(notecards_to_read, name)
-                    end
+                if itype == INVENTORY_NOTECARD and bit32.band(perms, PERM_COPY) ~= 0 then
+                    table.insert(notecards_to_read, name)
                 end
                 local perms_owner = permLetters(perms)
                 local perms_next = permLetters(ll.GetInventoryPermMask(name, MASK_NEXT))
@@ -908,37 +908,13 @@ local function checkReport()
     end
 
     local menu_channel = randomChannel()
-    local handle = 0
-    local listener: any = nil
-    local timeout: any = nil
-    local function close()
-        ll.ListenRemove(handle)
-        if listener then
-            LLEvents:off("listen", listener)
-            listener = nil
-        end
-        if timeout then
-            LLTimers:off(timeout)
-            timeout = nil
-        end
-    end
-    timeout = LLTimers:once(120, function()
-        timeout = nil
-        close()
-        remove_script()
-    end)
-    listener = LLEvents:on("listen", function(chan: number, _name: string, _id: uuid, message: string)
-        if chan ~= menu_channel then
-            return
-        end
-        close()
+    awaitAnswer(menu_channel, 120, function(message: string)
         if message == "OK" then
             reportRun(menu_channel)
         else
             remove_script()
         end
-    end)
-    handle = ll.Listen(menu_channel, "", ll.GetOwner(), "")
+    end, remove_script)
     ll.Dialog(ll.GetOwner(), product .. " " .. VERSION .. "\n\n" .. disclaimer, { "OK" }, menu_channel)
 end
 

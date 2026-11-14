@@ -55,10 +55,7 @@ LLEvents:on("link_message", function(_sender: number, num: number, msg: string, 
     local uid = touuid(id) or NULL_KEY
     if msg == "[SECURITY]" then
         if id == tostring(ll.GetOwner()) then
-            security_index += 1
-            if security_index > #SECURITY_TYPES then
-                security_index = 1
-            end
+            security_index = security_index % #SECURITY_TYPES + 1
             ll.MessageLinked(LINK_SET, 0, SECURITY_TYPES[security_index], "")
             ll.InstantMessage(uid, "Security set to: " .. SECURITY_TYPES[security_index])
         else
@@ -91,14 +88,15 @@ LLEvents:on("changed", function(change: number)
         local delay = 0
         while ll.GetAgentSize(ll.GetLinkKey(i)) ~= ZERO_VECTOR do
             local av = ll.GetLinkKey(i)
+            local avs = tostring(av)
             -- an avatar already waiting is not scheduled again: upstream's llSleep
             -- had unseated it before the next link change was handled
-            if not pass_security(av) and not unsit_pending[tostring(av)] then
+            if not pass_security(av) and not unsit_pending[avs] then
                 delay += 2
                 local text = refusal()
-                unsit_pending[tostring(av)] = true
+                unsit_pending[avs] = true
                 LLTimers:once(delay, function()
-                    unsit_pending[tostring(av)] = nil
+                    unsit_pending[avs] = nil
                     -- only if still sitting here (llUnSit can unseat from another object on owned land)
                     if seated(av) then
                         ll.UnSit(av)

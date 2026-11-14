@@ -642,11 +642,7 @@ local function parseLine(data: string): (string, string, string)
     local command = if sp then ll.GetSubString(data, 1, sp - 1) else ll.GetSubString(data, 1, -2)
     local rest = if sp then ll.GetSubString(data, sp + 1, -1) else data
     local parts = ll.ParseStringKeepNulls(rest, { " | ", " |", "| ", "|" }, {})
-    local tail = {}
-    for i = 2, #parts do
-        table.insert(tail, parts[i])
-    end
-    return command, ll.StringTrim(L(parts, 1), STRING_TRIM), ll.StringTrim(table.concat(tail, "|"), STRING_TRIM)
+    return command, ll.StringTrim(L(parts, 1), STRING_TRIM), ll.StringTrim(table.concat(parts, "|", 2), STRING_TRIM)
 end
 
 -- Load ANIM lines of the sitters in `only` (nil = every sitter this copy handles)
@@ -754,6 +750,12 @@ local function dump(msg: string)
     Readout_Start()
 end
 
+-- link messages handled from this prim only (checked before ll.GetLinkNumber)
+local HANDLED = {
+    [90045] = true, [90065] = true, [90030] = true, [90032] = true, [90070] = true,
+    [90230] = true, [90231] = true, [90172] = true, [90174] = true, [90020] = true,
+}
+
 LLEvents:on("link_message", function(sender: number, num: number, msg: string, id: string)
     if num == 90100 then
         -- menu button pressed: "[FACES]" toggles expressions (owner only) in every copy
@@ -774,7 +776,7 @@ LLEvents:on("link_message", function(sender: number, num: number, msg: string, i
         end
         return
     end
-    if sender ~= ll.GetLinkNumber() then
+    if not HANDLED[num] or sender ~= ll.GetLinkNumber() then
         return
     end
     if num == 90045 then
@@ -805,11 +807,9 @@ LLEvents:on("link_message", function(sender: number, num: number, msg: string, i
     elseif num == 90065 then
         -- someone stood up
         remove_sequences(id)
-        for i, s in SITTERS do
-            if s == id then
-                SITTERS[i] = NULL
-                break
-            end
+        local index = table.find(SITTERS, id)
+        if index then
+            SITTERS[index] = NULL
         end
         if id == mySitter then
             lastByButton = nil
@@ -856,13 +856,14 @@ LLEvents:on("link_message", function(sender: number, num: number, msg: string, i
         local pose = SITTER_POSES[sitter + 1] or ""
         local av = getSitter(sitter)
         remove_sequences(av)
+        local trigger = msg .. "|" .. pose
         for i = #faces, 1, -1 do
-            if faces[i].trigger == msg .. "|" .. pose then
+            if faces[i].trigger == trigger then
                 table.remove(faces, i)
             end
         end
         if id ~= "none" then
-            local f = newFace(msg .. "|" .. pose, id .. "|1")
+            local f = newFace(trigger, id .. "|1")
             table.insert(faces, f)
             start_sequence(f, av)
             ll.Say(0, "FACE added: '" .. id .. "' to '" .. pose .. "' for SITTER " .. tostring(sitter) .. ".")

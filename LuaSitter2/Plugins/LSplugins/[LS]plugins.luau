@@ -131,12 +131,10 @@ end
 
 local function orderButtons(b: {string}): {string}
     local out = {}
-    local n = #b
-    for _, r in { {n - 2, n}, {n - 5, n - 3}, {n - 8, n - 6}, {n - 11, n - 9} } do
-        for i = math.max(r[1], 1), r[2] do
-            if i >= 1 then
-                table.insert(out, b[i])
-            end
+    -- rows of 3 from the end of b, bottom row first; at most 12 buttons
+    for last = #b, math.max(#b - 9, 1), -3 do
+        for i = math.max(last - 2, 1), last do
+            table.insert(out, b[i])
         end
     end
     return out
@@ -244,6 +242,11 @@ do
         return string.format("<%.5f, %.5f, %.5f>", v.x, v.y, v.z)
     end
 
+    -- "PROP<n>" command suffix of a prop type ("" for type 0)
+    local function ptypeSuffix(ptype: number): string
+        return if ptype == 0 then "" else tostring(ptype)
+    end
+
     -- LSL element(text, x): x is 0-based
     local function element(text: string, x: number): string
         return L(split(text, "|"), x + 1)
@@ -312,6 +315,10 @@ do
         {ATTACH_NECK, "neck"},
         {ATTACH_AVATAR_CENTER, "avatar center"},
     }
+    -- get_point compares upper case names: convert them once
+    for _, ap in ATTACH_POINTS do
+        ap[2] = ll.ToUpper(ap[2])
+    end
 
     -- The sit script in this prim: "[LS]sit", or the LSL "[AV]sitA" for mixed
     -- setups. nil when there is none (menu mode).
@@ -337,22 +344,26 @@ do
         return SITTERS[s + 1] or NULL
     end
 
-    -- like llListReplaceList(SITTERS, [v], s, s): appends when past the end
-    local function setSitter(s: number, v: string)
+    -- like llListReplaceList(list, [v], s, s): appends when past the end
+    local function listSet(list: {string}, s: number, v: string)
         if s < 0 then
             return
         end
-        if s >= #SITTERS then
-            table.insert(SITTERS, v)
+        if s >= #list then
+            table.insert(list, v)
         else
-            SITTERS[s + 1] = v
+            list[s + 1] = v
         end
+    end
+
+    local function setSitter(s: number, v: string)
+        listSet(SITTERS, s, v)
     end
 
     local function get_point(text: string): number
         local up = ll.ToUpper(text)
         for _, ap in ATTACH_POINTS do
-            if string.find(up, ll.ToUpper(ap[2]), 1, true) then
+            if string.find(up, ap[2], 1, true) then
                 return ap[1]
             end
         end
@@ -439,31 +450,18 @@ do
         end
     end
 
-    -- returns 0-based prop ids
-    local function get_props_by_pose(pose_name: string): {number}
-        local out = {}
-        for i, p in props do
-            if p.trigger == pose_name then
-                table.insert(out, i - 1)
-            end
-        end
-        return out
-    end
-
     local function remove_props_by_sitter(sitter: string, remove_type3: boolean)
         local text = {}
+        local prefix = sitter .. "|"
         for i, p in props do
-            if startsWith(p.trigger, sitter .. "|") then
+            if startsWith(p.trigger, prefix) then
                 if p.ptype ~= 3 or remove_type3 then
                     table.insert(text, tostring(i - 1))
                 end
             end
         end
-        local command = "REM_INDEX"
-        if main_script() == nil then
-            command = "REM_WORLD"
-        end
         if #text > 0 then
+            local command = if main_script() == nil then "REM_WORLD" else "REM_INDEX"
             send_command(command .. "|" .. table.concat(text, "|"))
         end
     end
@@ -489,13 +487,14 @@ do
     -- gp is the 1-based index in sequential_prop_groups
     local function remove_props_by_group(gp: number?)
         local group = if gp then sequential_prop_groups[gp] or "" else ""
-        local text = ""
+        local ids = {}
         for i, p in props do
             if p.group == group then
-                text ..= "|" .. tostring(i - 1)
+                table.insert(ids, tostring(i - 1))
             end
         end
-        if text ~= "" then
+        if #ids > 0 then
+            local text = "|" .. table.concat(ids, "|")
             if main_script() then
                 -- with a sit script: send the command to all sitters
                 send_command("REM_INDEX" .. text)
@@ -512,11 +511,11 @@ do
     end
 
     local function remove_sitter_props_by_pose_group(msg: string)
-        local groups = {}
-        for _, i in get_props_by_pose(msg) do
-            local prop_group = props[i + 1].group
-            if table.find(groups, prop_group) == nil then
-                table.insert(groups, prop_group)
+        local seen: {[string]: boolean} = {}
+        for _, p in props do
+            local prop_group = p.group
+            if p.trigger == msg and not seen[prop_group] then
+                seen[prop_group] = true
                 remove_props_by_group(table.find(sequential_prop_groups, prop_group))
             end
         end
@@ -576,10 +575,25 @@ do
         end
     end
 
+    local function hasTrigger(trigger: string): boolean
+        for _, p in props do
+            if p.trigger == trigger then
+                return true
+            end
+        end
+        return false
+    end
+
     table.insert(resetHooks, remove_all_props)
 
+    -- link messages handled by this module (checked before ll.GetLinkNumber)
+    local HANDLED = {
+        [90045] = true, [90200] = true, [90220] = true, [90101] = true, [90065] = true,
+        [90030] = true, [90032] = true, [90070] = true, [90171] = true, [90173] = true, [90020] = true,
+    }
+
     LLEvents:on("link_message", function(sender: number, n: number, msg: string, id: string)
-        if sender ~= ll.GetLinkNumber() then
+        if not HANDLED[n] or sender ~= ll.GetLinkNumber() then
             return
         end
         if n == 90045 then -- play pose
@@ -588,13 +602,7 @@ do
             if id == getSitter(sitter) then
                 remove_sitter_props_by_pose(SITTER_POSES[sitter + 1] or "", false)
                 local given_posename = tostring(sitter) .. "|" .. L(data, 2)
-                if sitter >= 0 then
-                    if sitter >= #SITTER_POSES then
-                        table.insert(SITTER_POSES, given_posename)
-                    else
-                        SITTER_POSES[sitter + 1] = given_posename
-                    end
-                end
+                listSet(SITTER_POSES, sitter, given_posename)
                 remove_sitter_props_by_pose_group(given_posename)
                 rez_props_by_trigger(given_posename)
             end
@@ -607,38 +615,30 @@ do
             if not hasMain then
                 SITTERS = {sitting_av_or_sitter}
             end
-            if startsWith(msg, "remprop_") then
-                local pose = string.sub(msg, 9)
+            local remprop = startsWith(msg, "remprop_")
+            local pose = string.sub(msg, 9)
+            -- does any sitter have a prop for this pose?
+            local flag = false
+            if not remprop then
                 for i = 0, #SITTERS - 1 do
-                    if SITTERS[i + 1] == sitting_av_or_sitter or id == "" or sitting_av_or_sitter == tostring(i) then
-                        remove_sitter_props_by_pose(tostring(i) .. "|" .. pose, true)
+                    if hasTrigger(tostring(i) .. "|" .. msg) then
+                        flag = true
+                        break
                     end
                 end
-            else
-                local flag = false
-                for i = 0, #SITTERS - 1 do
-                    for _, p in props do
-                        if p.trigger == tostring(i) .. "|" .. msg then
-                            flag = true
-                            break
-                        end
-                    end
-                end
-                for i = 0, #SITTERS - 1 do
-                    if SITTERS[i + 1] == sitting_av_or_sitter or id == "" or sitting_av_or_sitter == tostring(i) then
-                        local trig = tostring(i) .. "|" .. msg
-                        local found = false
-                        for _, p in props do
-                            if p.trigger == trig then
-                                found = true
-                                break
-                            end
-                        end
-                        if not found then
+            end
+            for i = 0, #SITTERS - 1 do
+                local si = tostring(i)
+                if SITTERS[i + 1] == sitting_av_or_sitter or id == "" or sitting_av_or_sitter == si then
+                    if remprop then
+                        remove_sitter_props_by_pose(si .. "|" .. pose, true)
+                    else
+                        local trig = si .. "|" .. msg
+                        if not hasTrigger(trig) then
                             if not hasMain then
                                 remove_all_props()
                             elseif not flag then
-                                remove_props_by_sitter(tostring(i), true)
+                                remove_props_by_sitter(si, true)
                             end
                         else
                             remove_sitter_props_by_pose_group(trig)
@@ -713,13 +713,10 @@ do
         end
         if n == 90020 and id == SCRIPT then -- dump our settings
             local lines = {}
+            local prefix = msg .. "|"
             for _, p in props do
-                if startsWith(p.trigger, msg .. "|") then
-                    local ptype = tostring(p.ptype)
-                    if ptype == "0" then
-                        ptype = ""
-                    end
-                    table.insert(lines, "PROP" .. ptype .. " " .. table.concat({
+                if startsWith(p.trigger, prefix) then
+                    table.insert(lines, "PROP" .. ptypeSuffix(p.ptype) .. " " .. table.concat({
                         element(p.trigger, 1),
                         p.object,
                         element(p.group, 1),
@@ -781,11 +778,7 @@ do
                     local target_pos = ((their[1] :: vector) - ourPos) / f
                     p.pos = target_pos
                     p.rot = target_rot
-                    local ptype = tostring(p.ptype)
-                    if ptype == "0" then
-                        ptype = ""
-                    end
-                    local text = "PROP Saved to memory, SITTER " .. element(p.trigger, 0) .. ": PROP" .. ptype .. " "
+                    local text = "PROP Saved to memory, SITTER " .. element(p.trigger, 0) .. ": PROP" .. ptypeSuffix(p.ptype) .. " "
                         .. element(p.trigger, 1) .. "|" .. name .. "|" .. element(p.group, 1) .. "|"
                         .. fmtVec(target_pos) .. "|" .. fmtVec(target_rot) .. "|" .. p.point
                     ll.Say(0, text)
@@ -840,6 +833,9 @@ do
         return command, parts
     end
 
+    -- any other "PROP..." command is type 0
+    local PROP_TYPES = { PROP1 = 1, PROP2 = 2, PROP3 = 3 }
+
     local function onNotecardLine(line: string, _n: number)
         local command, parts = parseLine(line)
         if command == "SITTER" then
@@ -849,17 +845,9 @@ do
             if #props == 100 then
                 Out("Max props is 100, could not add prop!")
             else
-                local prop_type = 0
-                if command == "PROP1" then
-                    prop_type = 1
-                elseif command == "PROP2" then
-                    prop_type = 2
-                elseif command == "PROP3" then
-                    prop_type = 3
-                end
                 addProp({
                     trigger = tostring(notecard_section) .. "|" .. L(parts, 1),
-                    ptype = prop_type,
+                    ptype = PROP_TYPES[command] or 0,
                     object = L(parts, 2),
                     group = tostring(notecard_section) .. "|" .. L(parts, 3),
                     pos = vec(L(parts, 4)),
@@ -1133,14 +1121,15 @@ do
             orderButtons({ "[BACK]", "◀◀", pauseplay, "▶▶" }), menu_channel)
     end
 
+    -- only messages this module handles end the pause: its own 90003 (PLAY) and
+    -- the 90045 / 90050 the sit script answers with must not cut it short
+    local HANDLED = {
+        [90065] = true, [90030] = true, [90032] = true, [90070] = true, [90000] = true,
+        [90008] = true, [90205] = true, [SEQUENCE_LINKNUMBER] = true,
+    }
+
     local function onLinkMessage(sender: number, n: number, msg: string, id: string)
-        if sender ~= ll.GetLinkNumber() then
-            return
-        end
-        -- only messages this module handles end the pause: its own 90003 (PLAY) and
-        -- the 90045 / 90050 the sit script answers with must not cut it short
-        if n ~= 90065 and n ~= 90030 and n ~= 90032 and n ~= 90070 and n ~= 90000 and n ~= 90008
-            and n ~= 90205 and n ~= SEQUENCE_LINKNUMBER then
+        if not HANDLED[n] or sender ~= ll.GetLinkNumber() then
             return
         end
         finish_play_pause()
@@ -1257,11 +1246,7 @@ do
         readNotecard(notecard_name, function(data: string, _n: number)
             local datalist = ll.ParseString2List(data, { " " }, {})
             local command = L(datalist, 1)
-            local rest = {}
-            for i = 2, #datalist do
-                table.insert(rest, datalist[i])
-            end
-            data = ll.StringTrim(table.concat(rest, " "), STRING_TRIM)
+            data = ll.StringTrim(table.concat(datalist, " ", 2), STRING_TRIM)
             if command == "DEBUG" then
                 DEBUG = int(data)
             elseif command == "SEQUENCE" then

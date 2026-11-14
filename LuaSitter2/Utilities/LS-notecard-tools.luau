@@ -197,11 +197,7 @@ end
 local function FormatFloat(f: number, num_decimals: number): string
     local rounding = f32(f32(tonumber(".5e-" .. tostring(num_decimals)) or 0) - f32(0.5e-6))
     f = f32(f)
-    if f < 0 then
-        f = f32(f - rounding)
-    else
-        f = f32(f + rounding)
-    end
+    f = f32(if f < 0 then f - rounding else f + rounding)
     local ret = sub0(lslFloatStr(f), 0, num_decimals - (if num_decimals == 0 then 1 else 0) - 7)
     if ll.SubStringIndex(ret, ".") ~= nil then
         while ll.GetSubString(ret, -1, -1) == "0" do
@@ -281,32 +277,30 @@ local function generate()
     local function Readout_Say(say: string)
         readout(say, 0.2)
     end
-    if ll.GetInventoryNumber(INVENTORY_ANIMATION) > 0 then
-        Readout_Say("")
-        Readout_Say("--✄--COPY BELOW INTO " .. NOTECARD_BASENAME .. " NOTECARD--✄--")
-        Readout_Say("")
-        local i = 1
-        while i <= ll.GetInventoryNumber(INVENTORY_ANIMATION) do
-            Readout_Say("POSE " .. name .. tostring(i) .. "|" .. ll.GetInventoryName(INVENTORY_ANIMATION, i))
-            i += 1
-        end
-        Readout_Say("")
-        Readout_Say("--✄--COPY ABOVE INTO " .. NOTECARD_BASENAME .. " NOTECARD--✄--")
-        Readout_Say("")
-        if not inUtilitiesBox() then -- remove it except from Utilities box
-            mode = "removed"
-            afterReadout(function()
-                print("Removing " .. SCRIPT .. " script")
-                ll.RemoveInventory(SCRIPT)
-            end)
-            return
-        end
-        afterReadout(backToIdle)
-        return
-    else
+    local total = ll.GetInventoryNumber(INVENTORY_ANIMATION)
+    if total == 0 then
         print("No animations found in inventory.")
+        backToIdle()
+        return
     end
-    backToIdle()
+    Readout_Say("")
+    Readout_Say("--✄--COPY BELOW INTO " .. NOTECARD_BASENAME .. " NOTECARD--✄--")
+    Readout_Say("")
+    for i = 1, total do
+        Readout_Say("POSE " .. name .. tostring(i) .. "|" .. ll.GetInventoryName(INVENTORY_ANIMATION, i))
+    end
+    Readout_Say("")
+    Readout_Say("--✄--COPY ABOVE INTO " .. NOTECARD_BASENAME .. " NOTECARD--✄--")
+    Readout_Say("")
+    if not inUtilitiesBox() then -- remove it except from Utilities box
+        mode = "removed"
+        afterReadout(function()
+            print("Removing " .. SCRIPT .. " script")
+            ll.RemoveInventory(SCRIPT)
+        end)
+        return
+    end
+    afterReadout(backToIdle)
 end
 
 --------------------------------------------------------------------------
@@ -363,12 +357,25 @@ local function check_in_root(): boolean
     return true
 end
 
+local function fmtVec(v: vector, num_decimals: number): string
+    return "<" .. FormatFloat(v.x, num_decimals) .. "," .. FormatFloat(v.y, num_decimals) .. ","
+        .. FormatFloat(v.z, num_decimals) .. ">"
+end
+
 local function fmtPos(pos: vector): string
-    return "<" .. FormatFloat(pos.x, 3) .. "," .. FormatFloat(pos.y, 3) .. "," .. FormatFloat(pos.z, 3) .. ">"
+    return fmtVec(pos, 3)
 end
 
 local function fmtRot(v: vector): string
-    return "<" .. FormatFloat(v.x, 1) .. "," .. FormatFloat(v.y, 1) .. "," .. FormatFloat(v.z, 1) .. ">"
+    return fmtVec(v, 1)
+end
+
+-- a position and a rotation (euler degrees) moved to the target prim, formatted
+local function shiftPosRot(pos: vector, rot: vector): (string, string)
+    pos = (pos - shift.target_prim_pos) / shift.target_prim_rot
+    local r = ll.Euler2Rot(rot * DEG_TO_RAD)
+    local vec_rot = ll.Rot2Euler(r / shift.target_prim_rot) * RAD_TO_DEG
+    return fmtPos(pos), fmtRot(vec_rot)
 end
 
 local function shiftLine(data: string, _n: number)
@@ -378,11 +385,8 @@ local function shiftLine(data: string, _n: number)
         data = (string.gsub(data, " ", ""))
         data = sub0(data, idx0(data, "}") + 1, 99999)
         local parts = ll.ParseStringKeepNulls(data, { "<" }, {})
-        local pos = lslVec("<" .. L(parts, 2))
-        pos = (pos - shift.target_prim_pos) / shift.target_prim_rot
-        local r = ll.Euler2Rot(lslVec("<" .. L(parts, 3)) * DEG_TO_RAD)
-        local vec_rot = ll.Rot2Euler(r / shift.target_prim_rot) * RAD_TO_DEG
-        Shift_Say("{" .. command .. "}" .. fmtPos(pos) .. fmtRot(vec_rot))
+        local pos, rot = shiftPosRot(lslVec("<" .. L(parts, 2)), lslVec("<" .. L(parts, 3)))
+        Shift_Say("{" .. command .. "}" .. pos .. rot)
     else
         -- upstream tested llSubStringIndex(first char, "PROP") which is always
         -- non-zero, so every other line (empty ones included) comes here
@@ -394,12 +398,7 @@ local function shiftLine(data: string, _n: number)
             index = 4
         end
         if index ~= 0 then
-            local pos = lslVec(L(parts, index))
-            local r = ll.Euler2Rot(lslVec(L(parts, index + 1)) * DEG_TO_RAD)
-            pos = (pos - shift.target_prim_pos) / shift.target_prim_rot
-            local vec_rot = ll.Rot2Euler(r / shift.target_prim_rot) * RAD_TO_DEG
-            parts[index] = fmtPos(pos)
-            parts[index + 1] = fmtRot(vec_rot)
+            parts[index], parts[index + 1] = shiftPosRot(lslVec(L(parts, index)), lslVec(L(parts, index + 1)))
         end
         Shift_Say(table.concat(parts, "|"))
     end
@@ -453,8 +452,9 @@ local function shiftTouch(link: number)
         return
     end
     if link > 1 then
-        shift.target_prim_pos = ll.GetLinkPrimitiveParams(link, { PRIM_POS_LOCAL })[1] :: vector
-        shift.target_prim_rot = ll.GetLinkPrimitiveParams(link, { PRIM_ROT_LOCAL })[1] :: quaternion
+        local params = ll.GetLinkPrimitiveParams(link, { PRIM_POS_LOCAL, PRIM_ROT_LOCAL })
+        shift.target_prim_pos = params[1] :: vector
+        shift.target_prim_rot = params[2] :: quaternion
         print("Converting " .. shift.notecard_name .. " for use in prim #" .. tostring(link))
         shiftRead()
     end
@@ -535,14 +535,9 @@ local function mlpConvert()
                 -- nothing
             elseif command == "POSE" then
                 if table.find(ommit, L(parts, 1)) == nil then
-                    if #parts - 1 > animator_total then
-                        animator_total = #parts - 1
-                    end
+                    animator_total = math.max(animator_total, #parts - 1)
                     if #parts - animator_count > 1 then
-                        local out = "POSE "
-                        if #parts + animator_count > 2 then
-                            out = "SYNC "
-                        end
+                        local out = if #parts + animator_count > 2 then "SYNC " else "POSE "
                         local pose = trim(L(parts, animator_count + 2))
                         pose = L(ll.ParseString2List(pose, { "::" }, {}), 1)
                         pose = L(ll.ParseString2List(pose, { ";" }, {}), 1)

@@ -110,11 +110,7 @@ local function stop_all_anims()
 end
 
 local function set_text()
-    local text = "▽"
-    for _ = 1, start_param do
-        text ..= "\n "
-    end
-    text = "SITTER " .. start_param .. "\n" .. text
+    local text = "SITTER " .. start_param .. "\n▽" .. string.rep("\n ", start_param)
     local hovertext_prim = 0
     if ll.GetNumberOfPrims() > 1 then
         if ll.GetAgentSize(ll.GetLinkKey(2)) == ZERO_VECTOR then
@@ -126,11 +122,7 @@ local function set_text()
 end
 
 local function setup()
-    local size = default_size
-    if not creatorIsScriptCreator() then
-        size = ll.GetScale()
-    end
-    size -= vector(0.01, 0.01, 0.01) * start_param
+    local size = (if creatorIsScriptCreator() then default_size else ll.GetScale()) - vector(0.01, 0.01, 0.01) * start_param
     set_text()
     ll.SetObjectName(base_object_name .. " " .. start_param)
     ll.SetLinkPrimitiveParamsFast(LINK_THIS, { PRIM_COLOR, ALL_SIDES, color(), 0.4, PRIM_SIZE, size })

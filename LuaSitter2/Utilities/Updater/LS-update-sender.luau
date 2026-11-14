@@ -86,6 +86,7 @@ local NULL = tostring(NULL_KEY)
 
 type Target = { id: string, files: string }
 local targets: {Target} = {}
+local targetIds: {[string]: boolean} = {} -- the ids in targets
 local av = NULL
 -- "idle", "choose" (menu shown), "range" (range menu shown), "update-collect", "update-confirm", "update",
 -- "remove-confirm", "remove",
@@ -138,18 +139,10 @@ local function getRange(): string
     return r
 end
 
+local RADIUS: {[string]: number} = { ["10"] = 10, ["20"] = 20, shout = 100, region = math.huge }
+
 local function radius(): number
-    local r = getRange()
-    if r == "10" then
-        return 10
-    elseif r == "20" then
-        return 20
-    elseif r == "shout" then
-        return 100
-    elseif r == "region" then
-        return math.huge
-    end
-    return ll.GetScale().x / 2
+    return RADIUS[getRange()] or ll.GetScale().x / 2
 end
 
 local function rangeLabel(): string
@@ -344,22 +337,21 @@ local function process(t: Target)
         return
     end
     particles_on(object)
-    if #other_to_update > 0 and table.find(scripts_to_update, receiver_script) == nil then
+    local sendsReceiver = table.find(scripts_to_update, receiver_script) ~= nil
+    if #other_to_update > 0 and not sendsReceiver then
         table.insert(scripts_to_update, receiver_script)
+        sendsReceiver = true
     end
-    if table.find(scripts_to_update, receiver_script) ~= nil then
+    if sendsReceiver then
         -- the receiver deletes all objects when loaded with start param -1: resend them
-        for _, s in surplus_to_update do
-            table.insert(other_to_update, s)
-        end
+        table.move(surplus_to_update, 1, #surplus_to_update, #other_to_update + 1, other_to_update)
     end
     local objectName = ll.Key2Name(object)
+    local isBox = ll.SubStringIndex(objectName, "[BOX]") ~= nil
     for _, script in scripts_to_update do
         say("Sending: " .. script .. " to " .. objectName)
-        local running = true
-        if ll.SubStringIndex(objectName, "[BOX]") ~= nil and script ~= receiver_script then
-            running = false -- set scripts not running if the target name contains [BOX]
-        end
+        -- set scripts not running if the target name contains [BOX]
+        local running = not isBox or script == receiver_script
         local remove_objects = -1
         ll.RemoteLoadScriptPin(object, script, pin, running, remove_objects)
     end
@@ -422,6 +414,7 @@ end
 local function startUpdate()
     mode = "update-collect"
     targets = {}
+    targetIds = {}
     local items: {string} = {}
     local me = ll.GetScriptName()
     for i = 1, ll.GetInventoryNumber(INVENTORY_ALL) do
@@ -567,10 +560,8 @@ local function migrateApply()
             local script = plan.add[i]
             if script == nil then
                 -- every script sent: the receiver deletes the old ones and starts the new ones
-                local start = plan.add
-                if ll.SubStringIndex(plan.label, "[BOX]") ~= nil then
-                    start = {} -- as Update: scripts not running in a [BOX]
-                end
+                -- as Update: scripts not running in a [BOX]
+                local start = if ll.SubStringIndex(plan.label, "[BOX]") ~= nil then {} else plan.add
                 sendList("MIGRATE_REMOVE", plan.id, plan.remove)
                 sendList("MIGRATE_START", plan.id, start)
                 waiting = {
@@ -677,6 +668,7 @@ end
 local function startMigrate()
     mode = "migrate-find"
     targets = {}
+    targetIds = {}
     say("Migration: looking for furniture... (range: " .. rangeLabel() .. ")")
     lsFound = {}
     lsFoundCount = 0
@@ -770,14 +762,10 @@ LLEvents:on("listen", function(chan: number, _name: string, id: uuid, msg: strin
     if cmd == "OBJECT_HERE" and (mode == "update-collect" or mode == "migrate-find") then
         if inRadius(id) then
             -- once per prim (the sender may ask again)
-            local known = false
-            for _, t in targets do
-                if t.id == tostring(id) then
-                    known = true
-                end
-            end
-            if not known then
-                table.insert(targets, { id = tostring(id), files = table.concat(data, "|", 2) })
+            local sid = tostring(id)
+            if not targetIds[sid] then
+                targetIds[sid] = true
+                table.insert(targets, { id = sid, files = table.concat(data, "|", 2) })
             end
         end
     elseif cmd == "RECEIVER_REMOVED" and mode == "remove" then
@@ -815,10 +803,7 @@ LLEvents:on("listen", function(chan: number, _name: string, id: uuid, msg: strin
         if L(data, 3) == "ok" then
             say("  done: removed " .. L(data, 4) .. ", started " .. L(data, 5) .. ".")
         else
-            local missing = {}
-            for i = 4, #data do
-                table.insert(missing, data[i])
-            end
+            local missing = table.move(data, 4, #data, 1, {})
             sayList("  NOT migrated, these scripts did not arrive (nothing was removed): ", missing)
         end
         w.next()

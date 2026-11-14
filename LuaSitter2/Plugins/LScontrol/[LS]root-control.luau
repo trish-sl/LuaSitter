@@ -59,14 +59,11 @@ local function split(s: string, sep: string): {string}
 end
 
 local function orderButtons(b: {string}): {string}
+    -- rows of 3 from the end (the last 12 buttons at most), top row first
     local out = {}
     local n = #b
-    for _, r in { {n - 2, n}, {n - 5, n - 3}, {n - 8, n - 6}, {n - 11, n - 9} } do
-        for i = math.max(r[1], 1), r[2] do
-            if i >= 1 then
-                table.insert(out, b[i])
-            end
-        end
+    for last = n, n - 9, -3 do
+        table.move(b, math.max(last - 2, 1), last, #out + 1, out)
     end
     return out
 end
@@ -135,9 +132,11 @@ local function controller_menu(id: string)
     CONTROLLER_NAME = ll.Key2Name(K(id))
     local SITTERS: {string} = {}
     local count = ll.GetNumberOfPrims()
-    while ll.GetAgentSize(ll.GetLinkKey(count)) ~= ZERO_VECTOR do
-        table.insert(SITTERS, tostring(ll.GetLinkKey(count)))
+    local link_key = ll.GetLinkKey(count)
+    while ll.GetAgentSize(link_key) ~= ZERO_VECTOR do
+        table.insert(SITTERS, tostring(link_key))
         count -= 1
+        link_key = ll.GetLinkKey(count)
     end
     local hasRLV = check_for_RLV()
     if table.find(SITTERS, id) and hasRLV then
@@ -157,7 +156,7 @@ local function controller_menu(id: string)
                 table.insert(SITTERS_MENUKEYS, sitter)
             end
         end
-        SITTERS_SHORTNAMES = table.clone(menu_items)
+        SITTERS_SHORTNAMES = menu_items -- not modified below (pageOf copies it)
         local text = "Which avatar?"
         local fixed = {}
         if hasRLV then

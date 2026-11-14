@@ -129,9 +129,7 @@ local function orderButtons(b: {string}): {string}
     local n = #b
     for _, r in { {n - 2, n}, {n - 5, n - 3}, {n - 8, n - 6}, {n - 11, n - 9} } do
         for i = math.max(r[1], 1), r[2] do
-            if i >= 1 then
-                table.insert(out, b[i])
-            end
+            table.insert(out, b[i])
         end
     end
     return out
@@ -369,10 +367,10 @@ local function choice_menu(options: {string}, menu_text: string)
                 end
             end
         end
-        for i, line in lines do
+        for i in lines do
             table.insert(menu_items, tostring(i))
-            menu_text ..= line
         end
+        menu_text ..= table.concat(lines)
         if adding == "[SYNC]" and sitter_count > 1 then
             table.insert(menu_items, "[DONE]")
         end
@@ -435,11 +433,11 @@ end
 local function done_choosing_anims()
     local adding_text = L(ll.ParseString2List(adding, { "[", "]" }, {}), 1)
     adding ..= "2"
-    local text = ""
+    local text = {}
     for i, anim in chosen_animations do
-        text ..= "\nSITTER " .. tostring(i - 1) .. ": " .. anim
+        text[i] = "\nSITTER " .. tostring(i - 1) .. ": " .. anim
     end
-    ll.TextBox(K(controller), "\nType a menu name for " .. adding_text .. text, comm_channel)
+    ll.TextBox(K(controller), "\nType a menu name for " .. adding_text .. table.concat(text), comm_channel)
 end
 
 local function camera_menu()
@@ -588,11 +586,11 @@ end
 -- 90022: one dump line
 local function dump_line(msg: string, id: string)
     local head = string.sub(msg, 1, 4)
-    local fromSit = string.sub(msg, 1, 2) == "S:"
+    local fromSit = string.sub(head, 1, 2) == "S:"
     if head == "S:M:" or head == "S:T:" then
         msg = replace(msg, "*|", "|")
     end
-    if string.sub(msg, 1, 2) == "V:" then
+    if string.sub(head, 1, 2) == "V:" then
         dump_header(split(msg, "|"), id)
         return
     elseif string.sub(msg, 1, 1) == "{" then

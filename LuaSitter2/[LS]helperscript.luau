@@ -143,31 +143,22 @@ local function stop_all_anims()
 end
 
 local function set_text()
-    local text = "▽"
-    local t = "SITTER"
-    if ll.GetStartParameter() < -1000000000 then
-        t = "PRIM"
-    end
-    for _ = 1, sitter_number % 5 do
-        text ..= "\n \n "
-    end
-    text = t .. " " .. tostring(helper_index) .. "\n" .. text
+    local t = if ll.GetStartParameter() < -1000000000 then "PRIM" else "SITTER"
+    local text = t .. " " .. tostring(helper_index) .. "\n▽" .. string.rep("\n \n ", sitter_number % 5)
     ll.SetText(text, color(helper_index), 1)
 end
 
 local function setup()
     alpha = tonumber(ll.GetPrimitiveParams({ PRIM_COLOR, 0 })[2]) or 1
     CURRENT_AV = ""
-    local size = default_size
-    if not is_original() then
-        size = ll.GetScale()
-    end
+    local original = is_original()
+    local size = if original then default_size else ll.GetScale()
     for _ = 1, sitter_number do
         size -= vector(0.001, 0.001, 0)
     end
     set_text()
     ll.SetObjectName(base_object_name() .. " " .. tostring(helper_index))
-    if is_original() then
+    if original then
         ll.SetLinkPrimitiveParamsFast(LINK_THIS, {
             PRIM_TYPE, PRIM_TYPE_BOX, PRIM_HOLE_DEFAULT, vector(0, 1, 0), 0, ZERO_VECTOR, vector(1, 1, 0), ZERO_VECTOR,
             PRIM_TEXTURE, ALL_SIDES, TEXTURE_BLANK, vector(1, 1, 0), ZERO_VECTOR, 0,
@@ -183,9 +174,10 @@ local function setup()
 end
 
 local function timer_tick()
-    if my_pos ~= ll.GetPos() or my_rot ~= ll.GetRot() then
-        my_pos = ll.GetPos()
-        my_rot = ll.GetRot()
+    local pos, r = ll.GetPos(), ll.GetRot()
+    if my_pos ~= pos or my_rot ~= r then
+        my_pos = pos
+        my_rot = r
         ll.RegionSay(comm_channel, "MOVED|" .. tostring(sitter_number) .. "|" .. lslVec(my_pos) .. "|" .. lslRot(my_rot))
     elseif ll.GetTime() - rez_time > 86400 then -- auto-remove helper after 1 day
         ll.Die()

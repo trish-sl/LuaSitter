@@ -78,18 +78,12 @@ local function replace(s: string, search: string, rep: string): string
     return ll.ReplaceSubString(s, search, rep, 0)
 end
 
-local function split(s: string, sep: string): {string}
-    return ll.ParseStringKeepNulls(s, {sep}, {})
-end
-
 local function orderButtons(b: {string}): {string}
     local out = {}
     local n = #b
     for _, r in { {n - 2, n}, {n - 5, n - 3}, {n - 8, n - 6}, {n - 11, n - 9} } do
         for i = math.max(r[1], 1), r[2] do
-            if i >= 1 then
-                table.insert(out, b[i])
-            end
+            table.insert(out, b[i])
         end
     end
     return out
@@ -179,14 +173,14 @@ end
 -- keys of all notecards we read, to detect edits
 local function get_notecards_signature(): string
     local main = posCard()
-    local sig = main .. tostring(ll.GetInventoryKey(main))
+    local sig = { main .. tostring(ll.GetInventoryKey(main)) }
     for n = 1, get_number_of_scripts() - 1 do
         local nc = own_notecard(n)
         if nc then
-            sig ..= "|" .. nc .. tostring(ll.GetInventoryKey(nc))
+            table.insert(sig, nc .. tostring(ll.GetInventoryKey(nc)))
         end
     end
-    return sig
+    return table.concat(sig, "|")
 end
 
 -- Pages a list of per-sitter buttons, so there is no limit of 11 sitters. When
@@ -288,9 +282,9 @@ LLEvents:on("link_message", function(sender: number, num: number, msg: string, i
     end
     local one = int(msg) + 1
     if num == 90055 then
-        local data = split(id, "|")
         if one >= 1 and one <= #SYNCS then
-            SYNCS[one] = string.sub(L(data, 1), 1, 2) ~= "P:"
+            -- the pose name is the first "|" field of id; "P:" holds no "|"
+            SYNCS[one] = string.sub(id, 1, 2) ~= "P:"
         end
     elseif num == 90065 then
         menu_page[id] = nil

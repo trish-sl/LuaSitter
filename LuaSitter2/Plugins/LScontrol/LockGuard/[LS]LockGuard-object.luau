@@ -29,9 +29,12 @@ local function findPrimsWithSubstring(name: string): {string}
     local number = ll.GetNumberOfPrims() + index
     while index <= number do
         local key = ll.GetLinkKey(index)
-        if ll.GetAgentSize(key) == ZERO_VECTOR and string.find(ll.ToLower(ll.GetLinkName(index)), name, 1, true) then
-            table.insert(found, ll.GetLinkName(index))
-            table.insert(found, tostring(key))
+        if ll.GetAgentSize(key) == ZERO_VECTOR then
+            local prim_name = ll.GetLinkName(index)
+            if string.find(ll.ToLower(prim_name), name, 1, true) then
+                table.insert(found, prim_name)
+                table.insert(found, tostring(key))
+            end
         end
         index += 1
     end

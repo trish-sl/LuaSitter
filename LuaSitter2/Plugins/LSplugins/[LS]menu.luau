@@ -114,12 +114,10 @@ end
 
 local function orderButtons(b: {string}): {string}
     local out = {}
-    local n = #b
-    for _, r in { {n - 2, n}, {n - 5, n - 3}, {n - 8, n - 6}, {n - 11, n - 9} } do
-        for i = math.max(r[1], 1), r[2] do
-            if i >= 1 then
-                table.insert(out, b[i])
-            end
+    -- rows of 3 from the end of b, bottom row first; at most 12 buttons
+    for last = #b, math.max(#b - 9, 1), -3 do
+        for i = math.max(last - 2, 1), last do
+            table.insert(out, b[i])
         end
     end
     return out
@@ -285,13 +283,8 @@ local function options_menu()
         text ..= "\n[NEW] = Add a new prop."
         text ..= "\n[DUMP] = Read settings to chat."
     end
-    for _, b in {"[SAVE]", "[CLEAR]", "[SECURITY]", "[RESET]"} do
-        table.insert(menu_items, b)
-    end
-    text ..= "\n[SAVE] = Save prop positions."
-    text ..= "\n[CLEAR] = Clear props."
-    text ..= "\n[SECURITY] = Menu security."
-    text ..= "\n[RESET] = Reload notecard."
+    table.move({"[SAVE]", "[CLEAR]", "[SECURITY]", "[RESET]"}, 1, 4, #menu_items + 1, menu_items)
+    text ..= "\n[SAVE] = Save prop positions.\n[CLEAR] = Clear props.\n[SECURITY] = Menu security.\n[RESET] = Reload notecard."
     dialog(owner(), text, menu_items)
 end
 
@@ -339,10 +332,10 @@ local function choice_menu(options: {string}, menu_text: string)
                 end
             end
         end
-        for i, line in lines do
+        for i in lines do
             table.insert(menu_items, tostring(i))
-            menu_text ..= line
         end
+        menu_text ..= table.concat(lines)
         while #menu_items < number_per_page do
             table.insert(menu_items, " ")
         end
@@ -391,6 +384,13 @@ local function avmenu(return_pages: boolean, av: string): number
         table.insert(menu_items2, "[>>]")
     end
     local items_per_page = 12 - #menu_items2
+    if return_pages then
+        local pages = total_items // items_per_page
+        if total_items % items_per_page == 0 then
+            pages -= 1
+        end
+        return pages
+    end
     local page_start = current_menu + 1 + menu_page * items_per_page
     for j = page_start, page_start + items_per_page - 1 do
         if j < #MENU_LIST then
@@ -407,13 +407,6 @@ local function avmenu(return_pages: boolean, av: string): number
             end
         end
     end
-    if return_pages then
-        local pages = total_items // items_per_page
-        if total_items % items_per_page == 0 then
-            pages -= 1
-        end
-        return pages
-    end
     if menu_items2[1] == "[BACK]" then
         table.insert(menu_items1, 1, "[BACK]")
         table.remove(menu_items2, 1)
@@ -421,9 +414,7 @@ local function avmenu(return_pages: boolean, av: string): number
     menu_channel = randomChannel()
     ll.ListenRemove(listen_handle)
     listen_handle = ll.Listen(menu_channel, "", K(av), "")
-    for _, b in menu_items2 do
-        table.insert(menu_items1, b)
-    end
+    table.move(menu_items2, 1, #menu_items2, #menu_items1 + 1, menu_items1)
     dialog(av, custom_text, menu_items1)
     return 0
 end
@@ -461,6 +452,9 @@ end
 --------------------------------------------------------------------------
 -- Dialog replies
 --------------------------------------------------------------------------
+local CHOICE_BUTTONS = {["1"] = true, ["2"] = true, ["3"] = true, ["4"] = true, ["5"] = true,
+    ["6"] = true, ["7"] = true, ["8"] = true, ["9"] = true}
+
 LLEvents:on("listen", function(_channel: number, _name: string, uid: uuid, msg: string)
     local id = tostring(uid)
     if choice ~= "" then
@@ -484,7 +478,7 @@ LLEvents:on("listen", function(_channel: number, _name: string, uid: uuid, msg: 
         end
         return
     end
-    if choosing and table.find({"1", "2", "3", "4", "5", "6", "7", "8", "9"}, msg) then
+    if choosing and CHOICE_BUTTONS[msg] then
         choosing = false
         choice = L(get_choices(menu_page), int(msg))
         naming()
@@ -708,8 +702,7 @@ local function onNotecardLine(data: string, _n: number)
     local part0 = ll.StringTrim(L(parts, 1), STRING_TRIM)
     local part1 = L(parts, 2)
     if #parts > 1 then
-        local tail = table.move(parts, 2, #parts, 1, {})
-        part1 = ll.StringTrim(table.concat(tail, SEP), STRING_TRIM)
+        part1 = ll.StringTrim(table.concat(parts, SEP, 2), STRING_TRIM)
     end
     if command == "TEXT" then
         custom_text = replace(part0, "\\n", "\n")

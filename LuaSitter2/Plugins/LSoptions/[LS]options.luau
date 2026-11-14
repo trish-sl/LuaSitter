@@ -124,6 +124,7 @@ end
 local linkCache: {[string]: {number}} = {}
 local ruleCache: {[string]: {any}} = {}     -- option name -> PRIM_* rules that don't depend on the prim
 local soundOn: {[number]: string} = {}      -- link -> looping sound we started (pose lines don't restart it)
+local ALL_FACES = { ALL_SIDES }              -- the faces of a target without :<faces> (never changed)
 
 -- prims without the seated avatars (they are the last links)
 local function primCount(): number
@@ -442,7 +443,7 @@ local function staticRules(name: string): {any}
     rules = {}
     local targets: {Target} = OPTIONS[name] or {}
     for _, t in targets do
-        local faces = if #t.faces == 0 then { ALL_SIDES } else t.faces
+        local faces = if #t.faces == 0 then ALL_FACES else t.faces
         for _, link in linksOf(t.prim) do
             local start = #rules
             table.insert(rules, PRIM_LINK_TARGET)
@@ -474,7 +475,7 @@ end
 
 -- the settings that depend on the prim (texture repeats, colour without alpha...), and sounds
 local function applyDynamic(t: Target, fromPose: boolean)
-    local faces = if #t.faces == 0 then { ALL_SIDES } else t.faces
+    local faces = if #t.faces == 0 then ALL_FACES else t.faces
     for _, link in linksOf(t.prim) do
         local tex = t.texture
         if tex then
@@ -621,6 +622,13 @@ else
     local line = 1
     local query: uuid? = nil
     local handler: any = nil
+    local function done()
+        if handler then
+            LLEvents:off("dataserver", handler)
+            handler = nil
+        end
+        finished()
+    end
     local function pump()
         while true do
             local data = ll.GetNotecardLineSync(CARD, line)
@@ -628,11 +636,7 @@ else
                 query = ll.GetNotecardLine(CARD, line)
                 return
             elseif data == EOF then
-                if handler then
-                    LLEvents:off("dataserver", handler)
-                    handler = nil
-                end
-                finished()
+                done()
                 return
             end
             parseLine(data, line)
@@ -645,9 +649,7 @@ else
         end
         query = nil
         if data == EOF then
-            LLEvents:off("dataserver", handler)
-            handler = nil
-            finished()
+            done()
             return
         end
         parseLine(data, line)

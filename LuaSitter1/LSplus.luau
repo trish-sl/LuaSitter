@@ -50,12 +50,7 @@
 local product_and_version = "LuaSitter LSplus 3.0-lua1"
 local SITTER_BASENAME = "LSsit"
 -- Pose notecard: "LSpos" (LuaSitter name) is used when present, else "AVpos" (AVsitter name).
--- posCard(n) gives the name of sitter n's own notecard: "LSpos sitter N".
-local function posCard(n: number?): string
-    if n then
-        -- per-sitter notecard: never "LSpos 1", the name Second Life gives a duplicate copy
-        return "LSpos sitter " .. tostring(n)
-    end
+local function posCard(): string
     if ll.GetInventoryType("LSpos") ~= INVENTORY_NOTECARD and ll.GetInventoryType("AVpos") == INVENTORY_NOTECARD then
         return "AVpos"
     end
@@ -71,6 +66,7 @@ local HELPER_NAMES = { "LShelper", "AVhelper" }
 local NULL = tostring(NULL_KEY)
 local SILENCE = "ed124764-705d-d497-167a-182cd9fa2e6c"
 local CAMERA_CLICK = "3d09f582-3851-c0e0-f5ba-277ac5c73fb4"
+local DIGIT_BUTTONS = { "1", "2", "3", "4", "5", "6", "7", "8", "9" }
 local facial_anim_list = { "express_afraid_emote", "express_anger_emote", "express_laugh_emote", "express_bored_emote", "express_cry_emote", "express_embarrassed_emote", "express_sad_emote", "express_toothsmile", "express_smile", "express_surprise_emote", "express_worry_emote", "express_repulsed_emote", "express_shrug_emote", "express_wink_emote", "express_disdain", "express_frown", "express_kiss", "express_open_mouth", "express_tongue_out" }
 
 --------------------------------------------------------------------------
@@ -114,14 +110,8 @@ local function fmtV(v: vector): string
 end
 
 local function L(t: { any }, i: number): string
-    if i < 0 then
-        i = #t + 1 + i
-    end
     local v = t[i]
-    if v == nil then
-        return ""
-    end
-    return tostring(v)
+    return if v == nil then "" else tostring(v)
 end
 
 local function startsWith(s: string, p: string): boolean
@@ -137,9 +127,7 @@ local function orderButtons(b: { string }): { string }
     local n = #b
     for _, r in { { n - 2, n }, { n - 5, n - 3 }, { n - 8, n - 6 }, { n - 11, n - 9 } } do
         for i = math.max(r[1], 1), r[2] do
-            if i >= 1 then
-                table.insert(out, b[i])
-            end
+            table.insert(out, b[i])
         end
     end
     return out
@@ -363,35 +351,29 @@ local function sequence()
     local seq_ids: { string } = {}
     for _, run in running do
         local data = split(run.set.data, "|")
+        -- seq = animation:time:animation:time...; step j uses seq[2j+1] and seq[2j+2]
         local seq = split(L(data, 1), ":")
-        local seq_animations: { string } = {}
-        local seq_times: { string } = {}
-        for k = 1, #seq, 2 do
-            table.insert(seq_animations, seq[k])
-        end
-        for k = 2, #seq, 2 do
-            table.insert(seq_times, seq[k])
-        end
         local pointer = run.ptr
         local sequence_length = 0
         local held = false
         local j = 0
-        while j <= #seq_times do
+        while j <= #seq // 2 do
             if sequence_length == pointer then
-                local anim = L(seq_animations, j + 1)
+                local anim = L(seq, 2 * j + 1)
                 if IsInteger(anim) then
                     anim = facial(int(anim))
                 end
                 table.insert(seq_anims, anim)
                 table.insert(seq_ids, run.key)
             end
-            if L(seq_times, j + 1) == "-" then
+            local time = L(seq, 2 * j + 2)
+            if time == "-" then
                 -- "-" holds the expression forever
                 pointer += 1
                 held = true
                 break
             end
-            sequence_length += int(L(seq_times, j + 1))
+            sequence_length += int(time)
             j += 1
         end
         if not held then
@@ -451,10 +433,7 @@ end
 
 local function main_menu()
     page = 0
-    local text = "N/A"
-    if camera_position ~= ZERO_VECTOR then
-        text = "YES"
-    end
+    local text = if camera_position ~= ZERO_VECTOR then "YES" else "N/A"
     local menu_text = "\n" .. product_and_version .. "\nEXTRAS for Pose:" .. pose_name .. "\n\nCamera:" .. text .. "\nProp:"
     menu_text ..= lastDataFor(props, pose_name, { "|" }) .. "\nSound:"
     menu_text ..= lastDataFor(sounds, pose_name, { "|" }) .. "\nItem:"
@@ -555,15 +534,7 @@ local function sound_menu()
         ll.PlaySound(sound, volume)
     end
     playing_sound_for = owner()
-    local menu_items = { "[SOUNDS]", "~" }
-    if loop ~= 0 then
-        table.insert(menu_items, "[NO LOOP]")
-    else
-        table.insert(menu_items, "[LOOP]")
-    end
-    for _, b in { "[VOLUME-]", "[VOLUME+]", "[OK]" } do
-        table.insert(menu_items, b)
-    end
+    local menu_items = { "[SOUNDS]", "~", if loop ~= 0 then "[NO LOOP]" else "[LOOP]", "[VOLUME-]", "[VOLUME+]", "[OK]" }
     dialog("\nConfigure your sound:\n\nSound:" .. sound .. "\nVolume:" .. math.floor(volume * 100 + 0.5) .. "%", menu_items)
 end
 
@@ -656,7 +627,7 @@ local function onListen(channel: number, name: string, uid: uuid, message: strin
         elseif message == "[LOOP]" or message == "[NO LOOP]" then
             loop = if message == "[LOOP]" then 1 else 0
             sound_menu()
-        elseif table.find({ "1", "2", "3", "4", "5", "6", "7", "8", "9" }, message) then
+        elseif table.find(DIGIT_BUTTONS, message) then
             local n = int(message)
             if menu_type == "[PROPS]" then
                 remove_props()
@@ -912,11 +883,7 @@ local function onLine(raw: string, _lineNo: number)
         rest = data
     end
     local parts = ll.ParseStringKeepNulls(rest, { " | ", " |", "| ", "|" }, {})
-    local rest_parts = {}
-    for i = 2, #parts do
-        table.insert(rest_parts, parts[i])
-    end
-    data = table.concat(rest_parts, "|")
+    data = table.concat(parts, "|", 2)
     local pose = L(parts, 1)
     if startsWith(pose, "S:") then
         pose = string.sub(pose, 3)

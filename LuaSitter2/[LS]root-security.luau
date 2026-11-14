@@ -67,9 +67,7 @@ local function orderButtons(b: {string}): {string}
     local n = #b
     for _, r in { {n - 2, n}, {n - 5, n - 3}, {n - 8, n - 6}, {n - 11, n - 9} } do
         for i = math.max(r[1], 1), r[2] do
-            if i >= 1 then
-                table.insert(out, b[i])
-            end
+            table.insert(out, b[i])
         end
     end
     return out
@@ -96,10 +94,7 @@ local function owner(): string
 end
 
 local function pass_security(id: string, context: string): boolean
-    local TYPE = SIT_TYPES[SIT_INDEX]
-    if context == "MENU" then
-        TYPE = MENU_TYPES[MENU_INDEX]
-    end
+    local TYPE = if context == "MENU" then MENU_TYPES[MENU_INDEX] else SIT_TYPES[SIT_INDEX]
     if TYPE == "GROUP" then
         return ll.SameGroup(K(id))
     end
@@ -118,6 +113,10 @@ local function check_sitters()
     end
 end
 
+local function deny_menu(id: string)
+    ll.Dialog(K(id), product .. " " .. VERSION .. "\n\nSorry, Menu access is set to: " .. MENU_TYPES[MENU_INDEX], { "OK" }, -164289491)
+end
+
 local function check_for_RLV(): boolean
     return ll.GetInventoryType(RLV_script) == INVENTORY_SCRIPT
 end
@@ -134,7 +133,7 @@ local function register_touch(id: string, animation_menu_function: number, prim:
             ll.MessageLinked(LINK_SET, 90005, tostring(animation_menu_function), id)
         end
     elseif giveFailedMessage then
-        ll.Dialog(K(id), product .. " " .. VERSION .. "\n\nSorry, Menu access is set to: " .. MENU_TYPES[MENU_INDEX], { "OK" }, -164289491)
+        deny_menu(id)
     end
 end
 
@@ -181,7 +180,7 @@ LLEvents:on("link_message", function(sender: number, num: number, msg: string, i
         elseif pass_security(id, "MENU") then
             ll.MessageLinked(sender, 90016, msg, id)
         else
-            ll.Dialog(K(id), product .. " " .. VERSION .. "\n\nSorry, Menu access is set to: " .. MENU_TYPES[MENU_INDEX], { "OK" }, -164289491)
+            deny_menu(id)
         end
     elseif num == 90100 then
         local data = ll.ParseString2List(msg, { "|" }, {})

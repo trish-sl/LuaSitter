@@ -40,12 +40,7 @@ local SITTER_BASENAME = "LSsit"
 local SELECT_SCRIPT = "LSselect"
 local PLUS_SCRIPT = "LSplus"
 -- Pose notecard: "LSpos" (LuaSitter name) is used when present, else "AVpos" (AVsitter name).
--- posCard(n) gives the name of sitter n's own notecard: "LSpos sitter N".
-local function posCard(n: number?): string
-    if n then
-        -- per-sitter notecard: never "LSpos 1", the name Second Life gives a duplicate copy
-        return "LSpos sitter " .. tostring(n)
-    end
+local function posCard(): string
     if ll.GetInventoryType("LSpos") ~= INVENTORY_NOTECARD and ll.GetInventoryType("AVpos") == INVENTORY_NOTECARD then
         return "AVpos"
     end
@@ -106,14 +101,8 @@ local function fmtF(f: number): string
 end
 
 local function L(t: {any}, i: number): string
-    if i < 0 then
-        i = #t + 1 + i
-    end
     local v = t[i]
-    if v == nil then
-        return ""
-    end
-    return tostring(v)
+    return if v == nil then "" else tostring(v)
 end
 
 local function startsWith(s: string, p: string): boolean
@@ -129,9 +118,7 @@ local function orderButtons(b: {string}): {string}
     local n = #b
     for _, r in { {n - 2, n}, {n - 5, n - 3}, {n - 8, n - 6}, {n - 11, n - 9} } do
         for i = math.max(r[1], 1), r[2] do
-            if i >= 1 then
-                table.insert(out, b[i])
-            end
+            table.insert(out, b[i])
         end
     end
     return out
@@ -328,17 +315,8 @@ local function animation_menu(return_pages: number): number
     if return_pages == 2 or (#MENU < 2 and not helper_mode and hasScript(SELECT_SCRIPT)) then
         ll.MessageLinked(LINK_SET, 99899, "", controller)
     else
-        swap_text = "[SWAP]"
-        if hasScript(SELECT_SCRIPT) then
-            swap_text = "[SELECT]"
-        end
-        local menu = ""
-        if #SITTERS > 1 then
-            menu = "Sitter " .. script_channel
-        end
-        if sitter_text ~= "" then
-            menu = sitter_text
-        end
+        swap_text = if hasScript(SELECT_SCRIPT) then "[SELECT]" else "[SWAP]"
+        local menu = if sitter_text ~= "" then sitter_text elseif #SITTERS > 1 then "Sitter " .. script_channel else ""
         if current_menu ~= -1 then
             menu ..= ">" .. ll.GetSubString(E(current_menu).name, 3, -2)
         end
@@ -368,12 +346,19 @@ local function animation_menu(return_pages: number): number
         if current_menu ~= -1 then
             table.insert(menu_items2, 1, "[BACK]")
         end
-        local menu_items1: { string } = {}
         if total_items + #menu_items2 > 12 then
             table.insert(menu_items2, "[PAGE-]")
             table.insert(menu_items2, "[PAGE+]")
         end
         local items_per_page = 12 - #menu_items2
+        if return_pages == 1 then
+            local pages = total_items // items_per_page
+            if total_items % items_per_page == 0 then
+                pages -= 1
+            end
+            return pages
+        end
+        local menu_items1: { string } = {}
         local page_start = current_menu + 1 + menu_page * items_per_page
         for j = page_start, page_start + items_per_page - 1 do
             if j < #MENU then
@@ -389,20 +374,11 @@ local function animation_menu(return_pages: number): number
                 end
             end
         end
-        if return_pages == 1 then
-            local pages = total_items // items_per_page
-            if total_items % items_per_page == 0 then
-                pages -= 1
-            end
-            return pages
-        end
         if menu_items2[1] == "[BACK]" then
             table.insert(menu_items1, 1, "[BACK]")
             table.remove(menu_items2, 1)
         end
-        for _, b in menu_items2 do
-            table.insert(menu_items1, b)
-        end
+        table.move(menu_items2, 1, #menu_items2, #menu_items1 + 1, menu_items1)
         ll.Dialog(K(controller), menu_text, orderButtons(menu_items1), menu_channel)
     end
     return 0
@@ -410,25 +386,14 @@ end
 
 local POS_INCREMENTS = { "0.05m", "0.25m", "0.01m" }
 local ROT_INCREMENTS = { "5°", "25°", "1°" }
+local AXIS_BUTTONS = { "X+", "Y+", "Z+", "X-", "Y-", "Z-" }
 
 local function adjust_menu()
     local menu_items = { "[BACK]", "[SAVE]", "[DEFAULT]" }
-    local helper = " - "
-    if has_helper then
-        helper = "[HELPER]"
-    end
-    if pos_rot_adjust_toggle then
-        table.insert(menu_items, "ROT")
-        table.insert(menu_items, helper)
-        table.insert(menu_items, ROT_INCREMENTS[increment_pointer + 1])
-    else
-        table.insert(menu_items, "POS")
-        table.insert(menu_items, helper)
-        table.insert(menu_items, POS_INCREMENTS[increment_pointer + 1])
-    end
-    for _, b in { "X+", "Y+", "Z+", "X-", "Y-", "Z-" } do
-        table.insert(menu_items, b)
-    end
+    table.insert(menu_items, if pos_rot_adjust_toggle then "ROT" else "POS")
+    table.insert(menu_items, if has_helper then "[HELPER]" else " - ")
+    table.insert(menu_items, (if pos_rot_adjust_toggle then ROT_INCREMENTS else POS_INCREMENTS)[increment_pointer + 1])
+    table.move(AXIS_BUTTONS, 1, #AXIS_BUTTONS, #menu_items + 1, menu_items)
     ll.Dialog(K(controller), "\nPersonal Adjust:", orderButtons(menu_items), menu_channel)
 end
 
@@ -536,6 +501,13 @@ local function stopCurrentAnimation()
     end
 end
 
+-- in helper mode, ask LSadjuster to refresh the helpers (90040 "sitter|number of sitters")
+local function notify_helper_mode()
+    if helper_mode then
+        ll.MessageLinked(LINK_SET, 90040, script_channel .. "|" .. #SITTERS, "")
+    end
+end
+
 --------------------------------------------------------------------------
 -- events
 --------------------------------------------------------------------------
@@ -555,17 +527,13 @@ LLEvents:on("listen", function(_channel: number, _name: string, uid: uuid, messa
     if mindex_test ~= -1 then
         animation_menu(0)
         ll.MessageLinked(LINK_SET, 90055, "S:" .. message, id)
-        if helper_mode then
-            ll.MessageLinked(LINK_SET, 90040, script_channel .. "|" .. #SITTERS, "")
-        end
+        notify_helper_mode()
         return
     end
     mindex_test = findMenu(message)
     if mindex_test ~= -1 then
         ll.MessageLinked(LINK_SET, 90055, message, id)
-        if helper_mode then
-            ll.MessageLinked(LINK_SET, 90040, script_channel .. "|" .. #SITTERS, "")
-        end
+        notify_helper_mode()
         play_anim(mindex_test)
         animation_menu(0)
         return
@@ -654,7 +622,7 @@ LLEvents:on("listen", function(_channel: number, _name: string, uid: uuid, messa
     elseif message == "POS" or message == "ROT" then
         pos_rot_adjust_toggle = not pos_rot_adjust_toggle
         adjust_menu()
-    elseif table.find({ "X+", "Y+", "Z+", "X-", "Y-", "Z-" }, message) then
+    elseif table.find(AXIS_BUTTONS, message) then
         local increments = if pos_rot_adjust_toggle then ROT_INCREMENTS else POS_INCREMENTS
         local change = num(increments[increment_pointer + 1])
         if string.sub(message, 2, 2) == "-" then
@@ -774,10 +742,7 @@ LLEvents:on("run_time_permissions", function(perm: number)
             end
         end
         local pk = tostring(ll.GetPermissionsKey())
-        local new = 0
-        if pk ~= avkey then
-            new = 2
-        end
+        local new = if pk ~= avkey then 2 else 0
         avkey = ""
         ll.MessageLinked(LINK_SET, 90070, tostring(script_channel), pk)
         controller = pk
@@ -793,9 +758,7 @@ LLEvents:on("run_time_permissions", function(perm: number)
         if helper_mode or menu_type == 0 then
             animation_menu(new)
         end
-        if helper_mode then
-            ll.MessageLinked(LINK_SET, 90040, script_channel .. "|" .. #SITTERS, "")
-        end
+        notify_helper_mode()
     end
 end)
 
@@ -884,17 +847,19 @@ LLEvents:on("link_message", function(sender: number, num_: number, msg: string, 
             play_anim(first_anim)
         end
     elseif num_ == 90070 then
-        if int(msg) ~= script_channel and sender == ll.GetLinkNumber() then
-            setS(int(msg), id)
+        local n = int(msg)
+        if n ~= script_channel and sender == ll.GetLinkNumber() then
+            setS(n, id)
         end
     elseif num_ == 90075 then
-        if int(msg) == script_channel then
+        local n = int(msg)
+        if n == script_channel then
             if agentPresent(me) then
                 stopCurrentAnimation()
             end
             ll.ListenRemove(menu_handle)
         end
-        setS(int(msg), NULL)
+        setS(n, NULL)
     elseif num_ == 90085 then
         has_helper = true
     elseif num_ == 90120 then

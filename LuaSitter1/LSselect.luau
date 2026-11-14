@@ -33,12 +33,7 @@
 local product_and_version = "LuaSitter LSselect 3.0-lua1"
 local SITTER_BASENAME = "LSsit"
 -- Pose notecard: "LSpos" (LuaSitter name) is used when present, else "AVpos" (AVsitter name).
--- posCard(n) gives the name of sitter n's own notecard: "LSpos sitter N".
-local function posCard(n: number?): string
-    if n then
-        -- per-sitter notecard: never "LSpos 1", the name Second Life gives a duplicate copy
-        return "LSpos sitter " .. tostring(n)
-    end
+local function posCard(): string
     if ll.GetInventoryType("LSpos") ~= INVENTORY_NOTECARD and ll.GetInventoryType("AVpos") == INVENTORY_NOTECARD then
         return "AVpos"
     end
@@ -73,14 +68,8 @@ local function int(v: any): number
 end
 
 local function L(t: { any }, i: number): string
-    if i < 0 then
-        i = #t + 1 + i
-    end
     local v = t[i]
-    if v == nil then
-        return ""
-    end
-    return tostring(v)
+    return if v == nil then "" else tostring(v)
 end
 
 local function replace(s: string, search: string, rep: string): string
@@ -92,9 +81,7 @@ local function orderButtons(b: { string }): { string }
     local n = #b
     for _, r in { { n - 2, n }, { n - 5, n - 3 }, { n - 8, n - 6 }, { n - 11, n - 9 } } do
         for i = math.max(r[1], 1), r[2] do
-            if i >= 1 then
-                table.insert(out, b[i])
-            end
+            table.insert(out, b[i])
         end
     end
     return out
@@ -213,8 +200,9 @@ local function menu(av: string)
     if sitter_index then
         local menu_buttons: { string } = {}
         for i = 1, #BUTTONS do
-            local avname = ll.Key2Name(K(SITTERS[i]))
-            if select_type == 0 and not SYNCS[i] and avname ~= "" and av ~= SITTERS[i] then
+            -- a seat taken by someone else (named only when that matters)
+            local avname = if select_type == 0 and not SYNCS[i] and av ~= SITTERS[i] then ll.Key2Name(K(SITTERS[i])) else ""
+            if avname ~= "" then
                 table.insert(menu_buttons, "⊘" .. ll.GetSubString(replace(avname, " Resident", " "), 1, 12))
             else
                 table.insert(menu_buttons, BUTTONS[i])
@@ -243,6 +231,8 @@ LLEvents:on("listen", function(_channel: number, _name: string, uid: uuid, messa
     local av_index = (table.find(SITTERS, id) or 0) - 1
     local button_index = (table.find(BUTTONS, message) or 0) - 1
     if av_index ~= -1 then
+        -- LSL list read: button_index -1 (no such button) reads the last seat, as upstream
+        local seat_sitter = at(SITTERS, button_index, NULL)
         if (message == PAGE_PREV or message == PAGE_NEXT) and button_index == -1 then
             menu_page[id] = (menu_page[id] or 0) + (if message == PAGE_NEXT then 1 else -1)
             menu(id)
@@ -251,7 +241,7 @@ LLEvents:on("listen", function(_channel: number, _name: string, uid: uuid, messa
         elseif message == "[ADJUST]" then
             ll.MessageLinked(LINK_SET, 90006, "", id)
         elseif ll.GetSubString(message, 1, 1) == "⊘"
-            or (not at(SYNCS, button_index, false) and at(SITTERS, button_index, NULL) ~= NULL and at(SITTERS, button_index, NULL) ~= id and select_type == 0)
+            or (not at(SYNCS, button_index, false) and seat_sitter ~= NULL and seat_sitter ~= id and select_type == 0)
         then
             menu(id)
         elseif button_index ~= -1 then

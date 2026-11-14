@@ -167,8 +167,9 @@ local function migrateGo()
         sayList("MIGRATE_DONE|" .. me .. "|missing", missing)
     else
         local removed, started = 0, 0
+        local myName = ll.GetScriptName()
         for _, s in pending_remove do
-            if s ~= ll.GetScriptName() and known(s, AV_TO_LS) and ll.GetInventoryType(s) == INVENTORY_SCRIPT then
+            if s ~= myName and known(s, AV_TO_LS) and ll.GetInventoryType(s) == INVENTORY_SCRIPT then
                 ll.RemoveInventory(s)
                 removed += 1
             end
@@ -234,10 +235,8 @@ LLEvents:on("listen", function(_chan: number, _name: string, id: uuid, msg: stri
 end)
 
 LLEvents:on("changed", function(change: number)
-    if bit32.band(change, CHANGED_OWNER) ~= 0 then
-        if not isAdmin() then
-            removeSelf()
-        end
+    if bit32.band(change, CHANGED_OWNER) ~= 0 and not isAdmin() then
+        removeSelf()
     end
 end)
 

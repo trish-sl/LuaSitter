@@ -118,7 +118,8 @@ local function readNotecard(name: string, onLine: (string, number) -> boolean, o
 end
 
 type Setting = { key: string, commands: string, tilt: number } -- key = "pose|sitter"
-local SETTINGS: {Setting} = {}
+local SETTINGS: {[string]: Setting} = {} -- by key; the first line of each key wins
+local setting_count = 0 -- XCITE lines read
 local TIMER_DEFAULT = 30
 local TIMERS: {string} = {}
 local SITTERS: {string} = {}
@@ -144,12 +145,7 @@ local function parse_text(say: string): string
 end
 
 local function findSetting(key: string): Setting?
-    for _, s in SETTINGS do
-        if s.key == key then
-            return s
-        end
-    end
-    return nil
+    return SETTINGS[key]
 end
 
 local function onTimer()
@@ -181,11 +177,15 @@ local function parseLine(data: string): boolean
     elseif command == "DEBUG" then
         DEBUG = int(parts[1])
     elseif command == "XCITE" then
-        table.insert(SETTINGS, {
+        local s: Setting = {
             key = ll.StringTrim(L(parts, 1), STRING_TRIM) .. "|" .. L(parts, 2),
             commands = L(parts, 3) .. "|" .. L(parts, 4) .. "|" .. L(parts, 5) .. "|" .. L(parts, 6),
             tilt = int(parts[7]),
-        })
+        }
+        setting_count += 1
+        if SETTINGS[s.key] == nil then
+            SETTINGS[s.key] = s
+        end
     end
     return false
 end
@@ -211,22 +211,23 @@ LLEvents:on("link_message", function(sender: number, num: number, msg: string, i
     if name == "" then
         return
     end
+    local prefix = name .. "|"
     for i = #TIMERS, 1, -1 do
-        if string.sub(TIMERS[i], 1, #name + 1) == name .. "|" then
+        if string.sub(TIMERS[i], 1, #prefix) == prefix then
             table.remove(TIMERS, i)
         end
     end
     setTimer(TIMER_DEFAULT, onTimer)
     local data = split(msg, "|")
-    local script_channel = int(data[1])
+    local sitter = tostring(int(data[1]))
     local CURRENT_POSE = L(data, 2)
     SITTERS = split(L(data, 5), "@")
     -- FIX: upstream never looked up "*|<sitter>", so a line such as "XCITE *|1|5|90"
     -- (documented in the example notecard as the default for sitter 1's poses) was
     -- ignored and "*|*" applied. A pose's own line still wins over it.
-    local s = findSetting(CURRENT_POSE .. "|" .. tostring(script_channel))
+    local s = findSetting(CURRENT_POSE .. "|" .. sitter)
         or findSetting(CURRENT_POSE .. "|*")
-        or findSetting("*|" .. tostring(script_channel))
+        or findSetting("*|" .. sitter)
         or findSetting("*|*")
     if not s then
         return
@@ -243,11 +244,11 @@ LLEvents:on("link_message", function(sender: number, num: number, msg: string, i
         ll.MessageLinked(LINK_SET, 20014, name, "")
     end
     local c = split(s.commands, "|")
-    table.insert(TIMERS, name .. "|" .. L(c, 1) .. "|" .. L(c, 2) .. "||" .. L(c, 4))
-    local commands = parse_text(s.commands)
-    ll.MessageLinked(LINK_SET, 20001, name .. "|" .. commands, NULL)
+    table.insert(TIMERS, prefix .. L(c, 1) .. "|" .. L(c, 2) .. "||" .. L(c, 4))
+    local commands = prefix .. parse_text(s.commands)
+    ll.MessageLinked(LINK_SET, 20001, commands, NULL)
     if DEBUG ~= 0 then
-        Out(0, "Sending xcite commands: " .. name .. "|" .. commands)
+        Out(0, "Sending xcite commands: " .. commands)
     end
 end)
 
@@ -258,7 +259,7 @@ if ll.GetInventoryType(notecard_name) == INVENTORY_NOTECARD then
     readNotecard(notecard_name, function(line: string, _n: number): boolean
         return parseLine(line)
     end, function(_total: number)
-        Out(0, tostring(#SETTINGS) .. " items Ready, Mem=" .. tostring(ll.GetFreeMemory()))
+        Out(0, tostring(setting_count) .. " items Ready, Mem=" .. tostring(ll.GetFreeMemory()))
     end)
 else
     Out(0, "Notecard \"" .. notecard_name .. "\" not found.")

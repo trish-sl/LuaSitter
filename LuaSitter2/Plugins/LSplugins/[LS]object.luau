@@ -88,10 +88,12 @@ local function sayDerezAndDie()
 end
 
 local function unsit_all()
-    local i = ll.GetNumberOfPrims()
-    while i > 0 and ll.GetAgentSize(ll.GetLinkKey(i)) ~= ZERO_VECTOR do
-        ll.UnSit(ll.GetLinkKey(i))
-        i -= 1
+    for i = ll.GetNumberOfPrims(), 1, -1 do
+        local av = ll.GetLinkKey(i)
+        if ll.GetAgentSize(av) == ZERO_VECTOR then
+            break
+        end
+        ll.UnSit(av)
     end
 end
 

@@ -137,11 +137,7 @@ local function L(t: {string}, i: number): string
     if i < 0 then
         i = #t + 1 + i
     end
-    local v = t[i]
-    if v == nil then
-        return ""
-    end
-    return tostring(v)
+    return t[i] or ""
 end
 
 local function contains(s: string, p: string): boolean
@@ -157,14 +153,11 @@ local function split(s: string, sep: string): {string}
 end
 
 local function orderButtons(b: {string}): {string}
+    -- rows of 3 from the end (the last 12 buttons at most), top row first
     local out = {}
     local n = #b
-    for _, r in { {n - 2, n}, {n - 5, n - 3}, {n - 8, n - 6}, {n - 11, n - 9} } do
-        for i = math.max(r[1], 1), r[2] do
-            if i >= 1 then
-                table.insert(out, b[i])
-            end
-        end
+    for last = n, n - 9, -3 do
+        table.move(b, math.max(last - 2, 1), last, #out + 1, out)
     end
     return out
 end
@@ -474,11 +467,11 @@ local function hovertext()
     local text = ""
     local color = vector(0, 1, 0)
     if #CAPTIVES > 0 then
-        local s = if #CAPTIVES > 1 then "s" else ""
-        text ..= "\n \nCaptive" .. s .. ":\n"
-        for _, c in CAPTIVES do
-            text ..= "\"" .. c.name .. "\"\n"
+        local names = table.create(#CAPTIVES)
+        for i, c in CAPTIVES do
+            names[i] = "\"" .. c.name .. "\"\n"
         end
+        text = "\n \nCaptive" .. (if #CAPTIVES > 1 then "s" else "") .. ":\n" .. table.concat(names)
         if TimelockSecUntilRelease ~= 0 then
             if TimelockPaused then
                 -- nothing
@@ -499,12 +492,7 @@ local function hovertext()
         end
     end
     if HTEXT ~= 0 then
-        local i = 1
-        while i < HTEXT do
-            i += 1
-            text ..= "\n "
-        end
-        ll.SetText(text, color, 0.8)
+        ll.SetText(text .. string.rep("\n ", HTEXT - 1), color, 0.8) -- HTEXT - 1 blank lines below
     else
         ll.MessageLinked(LINK_SET, 90207, text, vecStr(color))
     end
@@ -648,11 +636,7 @@ local function Timelock_menu()
         text ..= "\nHide/Show = hide the time from the hover text"
     end
     text ..= "\n[BACK] = RLV menu"
-    local buttons = {"[BACK]", pauseButton, hidButton}
-    for _, b in menu_items do
-        table.insert(buttons, b)
-    end
-    dialog(text, buttons)
+    dialog(text, table.move(menu_items, 1, #menu_items, 4, {"[BACK]", pauseButton, hidButton}))
 end
 
 local function relay_select_menu()
@@ -740,9 +724,7 @@ local function rlv_top_menu()
     if buttons[1] == "[BACK]" then
         table.insert(help, "[BACK] = previous menu")
     end
-    for _, b in menu_items do
-        table.insert(buttons, b)
-    end
+    table.move(menu_items, 1, #menu_items, #buttons + 1, buttons)
     local text = "RLV ▸ " .. slaveName .. "\n" .. status
     if #help > 0 then
         text ..= "\n\n" .. table.concat(help, "\n")
@@ -899,7 +881,7 @@ local function select_submissive_rlv()
             end
         end
     end
-    SITTERS_SHORTNAMES = table.clone(menu_items)
+    SITTERS_SHORTNAMES = menu_items -- not modified below (pageOf copies it)
     if #menu_items == 0 then
         text = "RLV ▸ there are no " .. string.lower(Submissive_name_plural) .. " sitting."
     end
@@ -1056,12 +1038,12 @@ local function fitButton(s: string, suffix: string): string
     return s .. suffix
 end
 
+-- pads `buttons` in place (every caller passes a fresh table)
 local function xDialog(text: string, buttons: {string})
-    local b = table.clone(buttons)
-    while #b % 3 ~= 0 do
-        table.insert(b, " ")
+    while #buttons % 3 ~= 0 do
+        table.insert(buttons, " ")
     end
-    ll.Dialog(K(X.controller), product .. " " .. X.product .. " " .. version .. "\n\n" .. text, orderButtons(b), X.menuChannel)
+    ll.Dialog(K(X.controller), product .. " " .. X.product .. " " .. version .. "\n\n" .. text, orderButtons(buttons), X.menuChannel)
 end
 
 local function xPagedMenu()
@@ -1069,30 +1051,20 @@ local function xPagedMenu()
     local page = buttons
     local n = #buttons
     if n > 11 then
-        local numberPages = n // 9
-        if n % 9 ~= 0 then
-            numberPages += 1
-        end
+        local numberPages = (n + 8) // 9
         if X.menuPage >= numberPages then
             X.menuPage = 0
         elseif X.menuPage < 0 then
             X.menuPage = numberPages - 1
         end
-        page = {}
-        for i = X.menuPage * 9 + 1, math.min(X.menuPage * 9 + 9, n) do
-            table.insert(page, buttons[i])
-        end
+        page = table.move(buttons, X.menuPage * 9 + 1, math.min(X.menuPage * 9 + 9, n), 1, {})
         while #page < 9 do
             table.insert(page, " ")
         end
         table.insert(page, "[<<]")
         table.insert(page, "[>>]")
     end
-    local all = {"[BACK]"}
-    for _, b in page do
-        table.insert(all, b)
-    end
-    xDialog(X.pagedMenuText, all)
+    xDialog(X.pagedMenuText, table.move(page, 1, #page, 2, {"[BACK]"}))
 end
 
 local function xNewPagedMenu(text: string, menu_items: {string})
@@ -1204,13 +1176,7 @@ local function xMenuListen(msg: string)
     elseif msg == "Detach" or msg == "Undress" or msg == "Browse #RLV" then
         X.menu = msg
         X.folderPath = {}
-        command = "getoutfit"
-        if msg == "Detach" then
-            command = "getattach"
-        end
-        if msg == "Browse #RLV" then
-            command = "getinvworn"
-        end
+        command = if msg == "Detach" then "getattach" elseif msg == "Browse #RLV" then "getinvworn" else "getoutfit"
         relay(X.slave, "@" .. command .. "=" .. tostring(X.statusChannel))
     elseif msg == "Fast Strip" then
         X.menu = "fs"
@@ -1277,13 +1243,14 @@ local function xStatusListen(msg: string)
                     if (wornThis == 3 and wornSub == 0) or (wornThis == 0 and wornSub == 3) or (wornThis == 3 and wornSub == 3) then
                         icon = iconFull
                     end
-                    local label = fitButton(icon .. " " .. ll.GetSubString(folder, 1, 13), "")
+                    local base = icon .. " " .. ll.GetSubString(folder, 1, 13)
+                    local label = fitButton(base, "")
                     -- two folders cut to the same label: number the later ones, so each
                     -- button still opens its own folder
                     local copy = 1
                     while table.find(X.folderOptions, label) do
                         copy += 1
-                        label = fitButton(icon .. " " .. ll.GetSubString(folder, 1, 13), "~" .. tostring(copy))
+                        label = fitButton(base, "~" .. tostring(copy))
                     end
                     table.insert(X.folderOptions, label)
                     table.insert(X.folderNamesFullLength, folder)
@@ -1308,9 +1275,7 @@ local function xStatusListen(msg: string)
         if #X.folderOptions == 0 and #buttons == 0 then
             msg = "#RLV folder empty"
         end
-        for _, o in X.folderOptions do
-            table.insert(buttons, o)
-        end
+        table.move(X.folderOptions, 1, #X.folderOptions, #buttons + 1, buttons)
         xNewPagedMenu(msg .. subInfo, buttons)
     elseif X.menu == "Detach" then
         xRemoveMenu(msg, ATTACHMENT_POINTS)
@@ -1324,14 +1289,12 @@ local function xStatusListen(msg: string)
             for _, sub in ll.ParseString2List(r.commands, {","}, {}) do
                 if not table.find(currentRestrictions, sub) then
                     inActive = true
+                    break
                 end
             end
             local btntext = (if inActive then iconInactive else iconActive) .. r.label
-            while (utf8.len(btntext) or 0) < 20 do
-                btntext ..= " "
-            end
-            btntext ..= "."
-            table.insert(menu_items, btntext)
+            -- padded to 20 characters (labels are valid UTF-8)
+            table.insert(menu_items, btntext .. string.rep(" ", 20 - (utf8.len(btntext) or 0)) .. ".")
         end
         xDialog("RLV for " .. ll.Key2Name(K(X.slave)) .. "\n\n" .. iconInactive .. "= Allowed\n" .. iconActive .. "= Restricted", menu_items)
     end
@@ -1404,6 +1367,14 @@ end
 --------------------------------------------------------------------------
 -- events (LSL "state running")
 --------------------------------------------------------------------------
+-- The link message numbers onLinkMessage acts on (keep in step with it): other numbers
+-- are dropped before a task is created for them, as they would do nothing.
+local LINK_NUMS: {[number]: boolean} = {
+    [90030] = true, [90032] = true, [90045] = true, [90060] = true, [90070] = true,
+    [90065] = true, [90012] = true, [90015] = true, [90100] = true, [90201] = true,
+    [90211] = true, [90208] = true, [90209] = true, [90020] = true,
+}
+
 local function onLinkMessage(sender: number, num: number, msg: string, id: string)
     local one = int(msg)
     if num == 90030 or num == 90032 then -- 90032: swap and return the menu (issue #140)
@@ -1791,7 +1762,12 @@ local function onListen(channel: number, _name: string, idk: uuid, msg: string)
 end
 
 local function startRunning()
-    LLEvents:on("link_message", task(onLinkMessage))
+    local linkTask = task(onLinkMessage)
+    LLEvents:on("link_message", function(sender: number, num: number, msg: string, id: string)
+        if LINK_NUMS[num] then
+            linkTask(sender, num, msg, id)
+        end
+    end)
     LLEvents:on("listen", task(onListen))
 
     -- sensor: relay search only (the relay check uses a timer)

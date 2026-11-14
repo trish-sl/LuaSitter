@@ -173,17 +173,22 @@ LLEvents:on("link_message", function(sender: number, num: number, msg: string, i
         extendTimeout()
 
         local data = ll.CSV2List(chains)
+        local prim_count = ll.GetObjectPrimCount(ll.GetKey())
+        local avatar_key = K(avatar)
+        local link_names: {[number]: string} = {} -- looked up once per pose
         for i = 1, #data, 2 do
             local lm_target = data[i]
             local prim_name = data[i + 1] or ""
             -- link number of the first prim whose name contains prim_name (highest link number first)
-            local j = ll.GetObjectPrimCount(ll.GetKey())
-            while j > 0 do
-                local link_id = j
-                j -= 1
-                if string.find(ll.GetLinkName(link_id), prim_name, 1, true) then
+            for link_id = prim_count, 1, -1 do
+                local link_name = link_names[link_id]
+                if not link_name then
+                    link_name = ll.GetLinkName(link_id)
+                    link_names[link_id] = link_name
+                end
+                if string.find(link_name, prim_name, 1, true) then
                     table.insert(emitters, { link = link_id, lmcode = lm_target, state = 0 })
-                    ll.RegionSayTo(K(avatar), lm_channel, avatar .. lm_target)
+                    ll.RegionSayTo(avatar_key, lm_channel, avatar .. lm_target)
                     break
                 end
             end
